@@ -223,10 +223,16 @@ function initMap() {
   fountainLayer = L.layerGroup().addTo(map);
 
   applyFilters();
-  fitInitialView();
-  renderMarkers();
-
   map.on('moveend zoomend', debounce(renderMarkers, 90));
+
+  // El contenedor del mapa se acaba de hacer visible: si encuadramos ya,
+  // Leaflet aún lo ve con tamaño 0 y el zoom sale mal. Recalculamos tamaño
+  // tras el primer reflow y entonces ajustamos a la fuente más cercana.
+  requestAnimationFrame(() => {
+    map.invalidateSize();
+    fitInitialView();
+    renderMarkers();
+  });
   $('recenter').addEventListener('click', () => {
     if (userPos) map.setView([userPos.lat, userPos.lon], 16, { animate: true });
   });
