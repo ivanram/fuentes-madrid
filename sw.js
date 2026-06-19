@@ -1,5 +1,8 @@
-/* Service worker — offline shell for Fuentes de Madrid */
-const CACHE = 'fuentes-madrid-v2';
+/* Service worker — Fuentes de Madrid
+   Estrategia "network-first": si hay conexión, siempre sirve la versión
+   más reciente (así las actualizaciones se ven al instante); si no hay
+   conexión, tira de la copia cacheada. Mantiene la app usable offline. */
+const CACHE = 'fuentes-madrid-v3';
 const SHELL = [
   './',
   './index.html',
@@ -18,7 +21,8 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -26,20 +30,17 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
-  const url = new URL(req.url);
 
-  // Map tiles: network-first, fall back to cache.
-  if (url.hostname.endsWith('basemaps.cartocdn.com')) {
-    e.respondWith(
-      fetch(req).then(res => {
-        const copy = res.clone();
-        caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});
+  // Network-first: intenta red, guarda copia fresca, y si falla usa caché.
+  e.respondWith(
+    fetch(req)
+      .then(res => {
+        if (res && res.status === 200 && (res.type === 'basic' || res.type === 'cors')) {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});
+        }
         return res;
-      }).catch(() => caches.match(req))
-    );
-    return;
-  }
-
-  // App shell: cache-first.
-  e.respondWith(caches.match(req).then(hit => hit || fetch(req)));
+      })
+      .catch(() => caches.match(req).then(hit => hit || caches.match('./index.html')))
+  );
 });
