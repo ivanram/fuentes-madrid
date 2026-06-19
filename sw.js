@@ -1,10 +1,11 @@
 /* Service worker — offline shell for Fuentes de Madrid */
-const CACHE = 'fuentes-madrid-v1';
+const CACHE = 'fuentes-madrid-v2';
 const SHELL = [
   './',
   './index.html',
   './styles.css',
   './app.js',
+  './fuentes.json',
   './icon.svg',
   './manifest.webmanifest',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',
@@ -27,8 +28,8 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
-  // Map tiles & the live data service: network-first, fall back to cache.
-  if (url.hostname.endsWith('basemaps.cartocdn.com') || url.hostname.endsWith('sigma.madrid.es')) {
+  // Map tiles: network-first, fall back to cache.
+  if (url.hostname.endsWith('basemaps.cartocdn.com')) {
     e.respondWith(
       fetch(req).then(res => {
         const copy = res.clone();

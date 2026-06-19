@@ -5,12 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const SERVICE = 'https://sigma.madrid.es/hosted/rest/services/MEDIO_AMBIENTE/FUENTES_DE_AGUA/MapServer/3';
-const FIELDS = 'CODIGO_INTERNO,ESTADO,USO,MODELO,DIRECCION,DIRECCION_AUX,BARRIO,DISTRITO';
-const CACHE_KEY = 'fuentes_madrid_v1';
-const CACHE_TTL = 24 * 60 * 60 * 1000;          // 24 h
-const DEFAULT_RADIUS = 500;                      // metros
-const MADRID_CENTER = [40.4168, -3.7038];
+const DEFAULT_RADIUS = 500;                      // metros (radio inicial del mapa)
 
 /* ---------- State ---------- */
 let map, userMarker, accCircle, radiusCircle;
@@ -54,7 +49,10 @@ function toast(msg, ms = 2600) {
 }
 
 /* ============================================================
-   DATA: load from cache, refresh from official service
+   DATA: load bundled local dataset (fuentes.json)
+   Generado desde el CSV oficial del Ayuntamiento de Madrid
+   (CC BY 4.0) y reproyectado a WGS84. Sin dependencias de red:
+   carga al instante y funciona offline (cacheado por el SW).
    ============================================================ */
 let _dataPromise = null;
 function ensureData() {
@@ -64,84 +62,20 @@ function ensureData() {
 }
 
 async function loadData() {
-  // 1) try cache for instant start
-  const cached = readCache();
-  if (cached) {
-    fountains = cached.features.map(makeFountain);
-    setUpdated(cached.updated, fountains.length);
-  }
-  // 2) refresh from network (skip only if cache is very fresh)
-  const fresh = cached && (Date.now() - cached.fetchedAt) < CACHE_TTL;
-  if (!cached || !fresh) {
-    try {
-      const data = await fetchAll();
-      fountains = data.features.map(makeFountain);
-      writeCache(data);
-      setUpdated(data.updated, fountains.length);
-    } catch (e) {
-      console.warn('Refresh failed', e);
-      if (!cached) throw e;     // nothing to show at all
-    }
-  }
+  const res = await fetch('./fuentes.json', { cache: 'no-cache' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  const all = (data.features || []).filter(f =>
+    typeof f.lat === 'number' && typeof f.lon === 'number' &&
+    (f.props.ESTADO || '').toUpperCase() === 'OPERATIVO');   // solo fuentes operativas
+  if (!all.length) throw new Error('Sin datos');
+  fountains = all.map(makeFountain);
+  setUpdated(data.updated || Date.now(), fountains.length);
   return fountains;
 }
 
 function makeFountain(f) {
   return { lat: f.lat, lon: f.lon, props: f.props, marker: null, dist: null };
-}
-
-async function fetchAll() {
-  const updated = await fetchUpdatedDate();
-  const PAGE = 3000;                     // = service maxRecordCount: one page covers current data
-  const all = [];
-  const seen = new Set();                // dedupe by CODIGO_INTERNO (safety net)
-  let offset = 0, guard = 0;
-  while (guard++ < 20) {
-    const url = `${SERVICE}/query?where=${encodeURIComponent("ESTADO='OPERATIVO'")}` +
-                `&outFields=${encodeURIComponent(FIELDS)}&returnGeometry=true&outSR=4326` +
-                `&resultOffset=${offset}&resultRecordCount=${PAGE}&f=geojson`;
-    const res = await fetch(url, { referrerPolicy: 'no-referrer' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const gj = await res.json();
-    const feats = (gj.features || []).filter(g => g.geometry && g.geometry.coordinates);
-    let added = 0;
-    for (const g of feats) {
-      const [lon, lat] = g.geometry.coordinates;
-      const code = (g.properties && g.properties.CODIGO_INTERNO) || `${lat},${lon}`;
-      if (typeof lat !== 'number' || typeof lon !== 'number' || seen.has(code)) continue;
-      seen.add(code);
-      all.push({ lat, lon, props: g.properties || {} });
-      added++;
-    }
-    // stop when the page wasn't full, or pagination isn't adding anything new
-    if (feats.length < PAGE || added === 0) break;
-    offset += PAGE;
-  }
-  if (!all.length) throw new Error('Sin resultados');
-  return { features: all, updated, fetchedAt: Date.now() };
-}
-
-async function fetchUpdatedDate() {
-  try {
-    const res = await fetch(`${SERVICE}?f=json`, { referrerPolicy: 'no-referrer' });
-    const meta = await res.json();
-    const ms = meta && meta.editingInfo && meta.editingInfo.lastEditDate;
-    if (ms) return ms;
-  } catch (_) {}
-  return Date.now();   // fallback: today (data is updated daily)
-}
-
-function readCache() {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY);
-    if (!raw) return null;
-    const o = JSON.parse(raw);
-    if (!o.features || !o.features.length) return null;
-    return o;
-  } catch (_) { return null; }
-}
-function writeCache(data) {
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch (_) {}
 }
 
 function setUpdated(ms, n) {
