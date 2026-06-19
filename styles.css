@@ -163,3 +163,64 @@ footer.bar .heart{color:#e25563}
   animation:rot .8s linear infinite;display:inline-block;
 }
 @keyframes rot{to{transform:rotate(360deg)}}
+
+/* splash privacy line slightly smaller */
+#splash .desc.privacy{font-size:.86rem;margin-top:-6px;color:#7686a0}
+#splash .desc a{color:var(--blue-d);font-weight:600;text-decoration:none;border-bottom:1.5px solid rgba(31,127,224,.3)}
+
+/* count chip as a button */
+header.bar .count{
+  margin-left:auto;display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+  font-size:.82rem;font-weight:600;color:var(--blue-d);
+  background:var(--bg);border:1px solid var(--line);padding:6px 11px;border-radius:999px;
+  transition:background .15s;
+}
+header.bar .count:active{background:#e9f1fb}
+header.bar .count svg{width:15px;height:15px}
+
+/* ---------- Filter sheet (reuses bottom-sheet look) ---------- */
+#filterSheet{
+  position:fixed;left:0;right:0;bottom:0;z-index:700;
+  transform:translateY(115%);transition:transform .28s cubic-bezier(.2,.8,.2,1);
+  background:var(--card);border-radius:22px 22px 0 0;
+  box-shadow:0 -10px 40px rgba(20,60,110,.18);
+  padding:8px 20px calc(22px + env(safe-area-inset-bottom));
+}
+#filterSheet.open{transform:translateY(0)}
+#filterSheet .grip{width:42px;height:5px;border-radius:3px;background:#d7e0ea;margin:8px auto 14px}
+#filterSheet .name{font-size:1.18rem;font-weight:700;margin:0 0 16px;letter-spacing:-.01em}
+#filterSheet .close{
+  position:absolute;top:12px;right:14px;border:none;background:var(--bg);
+  width:34px;height:34px;border-radius:50%;cursor:pointer;color:var(--muted);font-size:1.1rem;
+}
+#filterSheet .btn{width:100%;margin-top:6px}
+
+.fgroup{margin-bottom:18px}
+.flabel{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:9px}
+
+/* toggle switch */
+.switch{display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none}
+.switch input{position:absolute;opacity:0;width:0;height:0}
+.switch .track{
+  position:relative;width:48px;height:28px;border-radius:999px;background:#cdd8e4;
+  transition:background .18s;flex:0 0 auto;
+}
+.switch .knob{
+  position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .18s;
+}
+.switch input:checked + .track{background:var(--blue)}
+.switch input:checked + .track .knob{transform:translateX(20px)}
+.switch .stext{font-size:.98rem;font-weight:600}
+
+/* segmented control */
+.segment{display:flex;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px}
+.segment button{
+  flex:1;border:none;background:transparent;cursor:pointer;
+  padding:10px 6px;border-radius:9px;font-size:.92rem;font-weight:600;color:var(--muted);
+  transition:background .15s,color .15s;
+}
+.segment button.active{background:var(--blue);color:#fff;box-shadow:0 3px 8px rgba(31,127,224,.3)}
+
+/* sheet estado chip: bad state */
+.chip.bad{color:#c0392b}

@@ -5,15 +5,21 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const DEFAULT_RADIUS = 500;                      // metros (radio inicial del mapa)
+const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
+const MARKER_CAP = 350;          // máx. marcadores dibujados a la vez (rendimiento)
+const MIN_RADIUS = 70;           // m: evita sobre-acercar si la fuente está pegada
 
 /* ---------- State ---------- */
-let map, userMarker, accCircle, radiusCircle;
-let fountains = [];          // {lat,lon,props,marker,dist}
-let userPos = null;          // {lat,lon,acc}
+let map, userMarker, accCircle, radiusCircle, fountainLayer;
+let allFountains = [];           // todas las fuentes del dataset
+let fountains = [];              // subconjunto activo tras aplicar filtros
+const shown = new Set();         // fuentes con marcador actualmente en el mapa
+let userPos = null;
 let geoWatchId = null;
-let selected = null;         // currently selected fountain
-let heading = null;          // compass heading (deg)
+let selected = null;
+let heading = null;
+let dataUpdated = Date.now();
+const filters = { operativeOnly: true, uso: 'todas' };   // uso: todas | personas | perros
 
 /* ---------- Helpers ---------- */
 const $ = (id) => document.getElementById(id);
@@ -39,9 +45,10 @@ function fmtDist(m) {
 }
 function titleCase(s) {
   if (!s) return '';
-  return s.toLowerCase().replace(/(^|\s|\/|\(|-)([a-záéíóúñ])/g,
-    (m, p, c) => p + c.toUpperCase());
+  return s.toLowerCase().replace(/(^|\s|\/|\(|-)([a-záéíóúñ])/g, (m, p, c) => p + c.toUpperCase());
 }
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
 let toastTimer;
 function toast(msg, ms = 2600) {
   const t = $('toast'); t.innerHTML = msg; t.classList.add('show');
@@ -51,12 +58,11 @@ function toast(msg, ms = 2600) {
 /* ============================================================
    DATA: load bundled local dataset (fuentes.json)
    Generado desde el CSV oficial del Ayuntamiento de Madrid
-   (CC BY 4.0) y reproyectado a WGS84. Sin dependencias de red:
-   carga al instante y funciona offline (cacheado por el SW).
+   (CC BY 4.0) y reproyectado a WGS84. Sin dependencias de red.
    ============================================================ */
 let _dataPromise = null;
 function ensureData() {
-  if (fountains.length) return Promise.resolve(fountains);
+  if (allFountains.length) return Promise.resolve(allFountains);
   if (!_dataPromise) _dataPromise = loadData().catch((e) => { _dataPromise = null; throw e; });
   return _dataPromise;
 }
@@ -65,23 +71,24 @@ async function loadData() {
   const res = await fetch('./fuentes.json', { cache: 'no-cache' });
   if (!res.ok) throw new Error('HTTP ' + res.status);
   const data = await res.json();
-  const all = (data.features || []).filter(f =>
-    typeof f.lat === 'number' && typeof f.lon === 'number' &&
-    (f.props.ESTADO || '').toUpperCase() === 'OPERATIVO');   // solo fuentes operativas
-  if (!all.length) throw new Error('Sin datos');
-  fountains = all.map(makeFountain);
-  setUpdated(data.updated || Date.now(), fountains.length);
-  return fountains;
+  const list = (data.features || []).filter(f => typeof f.lat === 'number' && typeof f.lon === 'number');
+  if (!list.length) throw new Error('Sin datos');
+  allFountains = list.map(makeFountain);
+  dataUpdated = data.updated || Date.now();
+  const operativas = allFountains.filter(f => isOperative(f)).length;
+  setUpdated(dataUpdated, operativas);
+  return allFountains;
 }
 
 function makeFountain(f) {
   return { lat: f.lat, lon: f.lon, props: f.props, marker: null, dist: null };
 }
+function isOperative(f) { return (f.props.ESTADO || '').toUpperCase() === 'OPERATIVO'; }
 
 function setUpdated(ms, n) {
   const d = new Date(ms);
-  const fmt = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-  $('updatedText').textContent = `Base de datos actualizada: ${fmt} · ${n} fuentes`;
+  const fmt = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'numeric', year: '2-digit' });
+  $('updatedText').textContent = `Datos actualizados: ${fmt} · ${n} fuentes`;
 }
 
 /* ============================================================
@@ -104,10 +111,9 @@ function requestLocation() {
     (err) => {
       btn.disabled = false;
       btn.innerHTML = 'Permitir ubicación';
-      const msg = err.code === 1
+      $('splashErr').textContent = err.code === 1
         ? 'Permiso denegado. Actívalo en los ajustes del navegador para ver las fuentes cercanas.'
         : 'No hemos podido obtener tu ubicación. Inténtalo de nuevo.';
-      $('splashErr').textContent = msg;
     },
     { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
   );
@@ -117,13 +123,11 @@ function posToObj(pos) {
 }
 
 async function startApp() {
-  // make sure data is ready
-  try {
-    if (!fountains.length) await ensureData();
-  } catch (e) {
+  try { if (!allFountains.length) await ensureData(); }
+  catch (e) {
     $('askLocation').disabled = false;
     $('askLocation').innerHTML = 'Reintentar';
-    $('splashErr').textContent = 'No se pudieron cargar las fuentes. Revisa tu conexión e inténtalo de nuevo.';
+    $('splashErr').textContent = 'No se pudieron cargar las fuentes. Recarga la página e inténtalo de nuevo.';
     return;
   }
   $('splash').style.display = 'none';
@@ -133,60 +137,122 @@ async function startApp() {
 }
 
 /* ============================================================
+   FILTERS
+   ============================================================ */
+function matchesFilter(f) {
+  if (filters.operativeOnly && !isOperative(f)) return false;
+  const u = (f.props.USO || '').toUpperCase();
+  if (filters.uso === 'personas' && !(u === 'PERSONAS' || u === 'MIXTO')) return false;
+  if (filters.uso === 'perros' && !(u === 'MASCOTAS' || u === 'MIXTO')) return false;
+  return true;
+}
+function applyFilters() {
+  fountains = allFountains.filter(matchesFilter);
+  recomputeDistances();
+  const n = fountains.length;
+  if ($('countN')) $('countN').textContent = `${n}`;
+  if ($('filterCount')) $('filterCount').textContent = n;
+}
+function previewCount() {
+  // cuántas habría con la configuración actual de la UI (sin tocar el estado global)
+  return allFountains.filter(matchesFilter).length;
+}
+
+function readFilterUI() {
+  filters.operativeOnly = $('fOper').checked;
+  const active = $('fUso').querySelector('button.active');
+  filters.uso = active ? active.dataset.uso : 'todas';
+}
+function onFilterChange() {
+  readFilterUI();
+  applyFilters();
+  renderMarkers();
+}
+function openFilters() {
+  // sincroniza la UI con el estado actual
+  $('fOper').checked = filters.operativeOnly;
+  $('fUso').querySelectorAll('button').forEach(b =>
+    b.classList.toggle('active', b.dataset.uso === filters.uso));
+  $('filterCount').textContent = fountains.length;
+  $('filterSheet').classList.add('open');
+}
+function closeFilters() {
+  $('filterSheet').classList.remove('open');
+  fitInitialView();      // reencuadra a la más cercana del nuevo conjunto
+}
+
+/* ============================================================
    MAP
    ============================================================ */
 function userIcon() {
   return L.divIcon({
-    className: '',
-    iconSize: [28, 28], iconAnchor: [14, 14],
-    html: `<div class="user-dot"><svg width="28" height="28" viewBox="0 0 28 28">
-      <circle cx="14" cy="14" r="13" fill="#1f7fe0" fill-opacity="0.18"/>
-      <circle cx="14" cy="14" r="7" fill="#1f7fe0" stroke="#fff" stroke-width="3"/></svg></div>`
+    className: '', iconSize: [30, 30], iconAnchor: [15, 15],
+    html: `<div class="user-dot"><svg width="30" height="30" viewBox="0 0 30 30">
+      <circle cx="15" cy="15" r="14" fill="#1f7fe0" fill-opacity="0.18"/>
+      <circle cx="15" cy="15" r="7.5" fill="#1f7fe0" stroke="#fff" stroke-width="3.2"/></svg></div>`
   });
 }
 function fountainIcon(off) {
   const color = off ? '#9aa7b6' : '#1f7fe0';
   return L.divIcon({
-    className: '',
-    iconSize: [34, 42], iconAnchor: [17, 40], popupAnchor: [0, -38],
+    className: '', iconSize: [34, 42], iconAnchor: [17, 40], popupAnchor: [0, -38],
     html: `<div class="fountain-pin${off ? ' off' : ''}">
       <svg width="34" height="42" viewBox="0 0 34 42">
-        <path d="M17 1 C17 1 4 15 4 25 a13 13 0 0 0 26 0 C30 15 17 1 17 1 Z"
-              fill="${color}" stroke="#fff" stroke-width="2.5"/>
+        <path d="M17 1 C17 1 4 15 4 25 a13 13 0 0 0 26 0 C30 15 17 1 17 1 Z" fill="${color}" stroke="#fff" stroke-width="2.5"/>
         <path d="M17 12 c-3 4 -5 6.5 -5 9 a5 5 0 0 0 10 0 c0 -2.5 -2 -5 -5 -9 z" fill="#fff"/>
       </svg></div>`
   });
 }
 
 function initMap() {
-  map = L.map('map', { zoomControl: true, attributionControl: true })
+  map = L.map('map', { zoomControl: true, attributionControl: true, preferCanvas: true })
         .setView([userPos.lat, userPos.lon], 16);
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  // CARTO Voyager: estilo colorido tipo Google Maps, gratuito y sin API key.
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a> · Fuentes: Ayto. de Madrid',
     subdomains: 'abcd', maxZoom: 20, detectRetina: true
   }).addTo(map);
 
   userMarker = L.marker([userPos.lat, userPos.lon], { icon: userIcon(), zIndexOffset: 1000 })
-               .addTo(map).bindTooltip('Estás aquí', { direction: 'top', offset: [0, -10] });
+               .addTo(map).bindTooltip('Estás aquí', { direction: 'top', offset: [0, -12] });
   accCircle = L.circle([userPos.lat, userPos.lon], {
     radius: userPos.acc || 30, color: '#1f7fe0', weight: 1, opacity: .3, fillOpacity: .08
   }).addTo(map);
 
-  // place fountain markers
-  for (const f of fountains) {
-    const off = (f.props.ESTADO || '').toUpperCase() !== 'OPERATIVO';
-    f.marker = L.marker([f.lat, f.lon], { icon: fountainIcon(off) })
-                .addTo(map).on('click', () => openSheet(f));
-  }
+  fountainLayer = L.layerGroup().addTo(map);
 
-  recomputeDistances();
+  applyFilters();
   fitInitialView();
-  $('count').textContent = `${fountains.length} fuentes`;
+  renderMarkers();
 
+  map.on('moveend zoomend', debounce(renderMarkers, 90));
   $('recenter').addEventListener('click', () => {
     if (userPos) map.setView([userPos.lat, userPos.lon], 16, { animate: true });
   });
+}
+
+/* dibuja solo lo visible (con margen) y como mucho MARKER_CAP marcadores */
+function renderMarkers() {
+  if (!map || !fountainLayer) return;
+  const b = map.getBounds().pad(0.25);
+  let inView = [];
+  for (const f of fountains) if (b.contains([f.lat, f.lon])) inView.push(f);
+  if (inView.length > MARKER_CAP) {
+    const c = map.getCenter();
+    inView.sort((a, z) => map.distance(c, [a.lat, a.lon]) - map.distance(c, [z.lat, z.lon]));
+    inView = inView.slice(0, MARKER_CAP);
+  }
+  const need = new Set(inView);
+  for (const f of Array.from(shown)) {
+    if (!need.has(f)) { if (f.marker) fountainLayer.removeLayer(f.marker); f.marker = null; shown.delete(f); }
+  }
+  for (const f of inView) {
+    if (!f.marker) {
+      f.marker = L.marker([f.lat, f.lon], { icon: fountainIcon(!isOperative(f)) }).on('click', () => openSheet(f));
+      fountainLayer.addLayer(f.marker); shown.add(f);
+    }
+  }
 }
 
 function recomputeDistances() {
@@ -194,25 +260,21 @@ function recomputeDistances() {
   for (const f of fountains) f.dist = haversine(userPos.lat, userPos.lon, f.lat, f.lon);
   fountains.sort((a, b) => a.dist - b.dist);
 }
-
 function nearest() { return fountains.length ? fountains[0] : null; }
 
-/* default 500 m view; if no fountain inside, widen to include the closest one */
+/* la vista inicial se ajusta al radio de la fuente más cercana */
 function fitInitialView() {
+  if (!userPos || !map) return;
+  if (radiusCircle) { map.removeLayer(radiusCircle); radiusCircle = null; }
   const near = nearest();
-  let radius = DEFAULT_RADIUS;
-  if (near && near.dist > DEFAULT_RADIUS) radius = near.dist * 1.15;
+  if (!near) { map.setView([userPos.lat, userPos.lon], 15); toast('No hay fuentes con estos filtros.'); return; }
 
-  if (radiusCircle) map.removeLayer(radiusCircle);
+  const radius = Math.max(near.dist * 1.25, MIN_RADIUS);
   radiusCircle = L.circle([userPos.lat, userPos.lon], {
     radius, color: '#1f7fe0', weight: 1.5, dashArray: '6 6', opacity: .5, fillOpacity: .04
   }).addTo(map);
-
-  map.fitBounds(radiusCircle.getBounds(), { padding: [40, 40] });
-
-  if (near && near.dist > DEFAULT_RADIUS) {
-    toast(`No hay fuentes en 500 m. La más cercana está a ${fmtDist(near.dist)}.`);
-  }
+  map.fitBounds(radiusCircle.getBounds(), { padding: [50, 50], maxZoom: 18 });
+  toast(`Fuente más cercana: ${fmtDist(near.dist)}`);
 }
 
 /* ============================================================
@@ -243,28 +305,26 @@ const USO_ICON = {
 };
 function usoLabel(u) {
   u = (u || '').toUpperCase();
-  if (u.includes('MIXTO')) return ['MIXTO', 'Personas y mascotas'];
-  if (u.includes('MASCOTA')) return ['MASCOTAS', 'Para mascotas'];
-  if (u.includes('PERSONA')) return ['PERSONAS', 'Para personas'];
-  return ['MIXTO', titleCase(u) || 'Uso general'];
+  if (u === 'MIXTO') return ['MIXTO', 'Personas y mascotas'];
+  if (u === 'MASCOTAS') return ['MASCOTAS', 'Para mascotas'];
+  if (u === 'PERSONAS') return ['PERSONAS', 'Para personas'];
+  return ['MIXTO', 'Uso no especificado'];
 }
 
 function openSheet(f) {
   selected = f;
   const p = f.props;
-  const addr = [titleCase(p.DIRECCION), p.DIRECCION_AUX ? titleCase(p.DIRECCION_AUX) : '']
-               .filter(Boolean).join(' · ');
-  $('sName').textContent = titleCase(p.BARRIO) ? `Fuente · ${titleCase(p.BARRIO)}` : 'Fuente de agua';
-  $('sAddr').textContent = [addr, titleCase(p.DISTRITO)].filter(Boolean).join(' — ');
+  const addr = [p.DIRECCION, p.DIRECCION_AUX].filter(Boolean).join(' · ');
+  $('sName').textContent = p.BARRIO ? `Fuente · ${p.BARRIO}` : 'Fuente de agua';
+  $('sAddr').textContent = [addr, p.DISTRITO].filter(Boolean).join(' — ');
 
   const [usoKey, usoTxt] = usoLabel(p.USO);
-  const operative = (p.ESTADO || '').toUpperCase() === 'OPERATIVO';
+  const operative = isOperative(f);
   const chips = [];
   chips.push(`<span class="chip dist">${pinSvg()} ${fmtDist(f.dist)}</span>`);
   chips.push(`<span class="chip">${USO_ICON[usoKey] || ''} ${usoTxt}</span>`);
-  chips.push(`<span class="chip ${operative ? 'ok' : ''}">${operative ? checkSvg() : ''} ${operative ? 'Operativa' : titleCase(p.ESTADO || 'Estado desconocido')}</span>`);
+  chips.push(`<span class="chip ${operative ? 'ok' : 'bad'}">${operative ? checkSvg() : crossSvg()} ${operative ? 'Operativa' : titleCase(p.ESTADO || 'Sin servicio')}</span>`);
   $('sChips').innerHTML = chips.join('');
-
   $('sheet').classList.add('open');
 }
 function updateSheetDistance() {
@@ -272,17 +332,15 @@ function updateSheetDistance() {
   const el = $('sChips').querySelector('.chip.dist');
   if (el) el.innerHTML = `${pinSvg()} ${fmtDist(selected.dist)}`;
 }
-function pinSvg() {
-  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>';
-}
-function checkSvg() {
-  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
-}
+function pinSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>'; }
+function checkSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'; }
+function crossSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>'; }
+
 $('sheetClose').addEventListener('click', () => { $('sheet').classList.remove('open'); selected = null; });
 
 /* ---------- Walking route (opens map app) ---------- */
 $('btnRoute').addEventListener('click', () => {
-  if (!selected) return;
+  if (!selected || !userPos) return;
   const d = selected, u = userPos;
   const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   const url = isiOS
@@ -295,7 +353,6 @@ $('btnRoute').addEventListener('click', () => {
    AR MODE (camera + compass arrow)
    ============================================================ */
 let arStream = null;
-
 $('btnAR').addEventListener('click', startAR);
 $('arClose').addEventListener('click', stopAR);
 
@@ -304,35 +361,29 @@ async function startAR() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     toast('Tu navegador no permite usar la cámara para AR.'); return;
   }
-  // iOS 13+ needs explicit motion/orientation permission
   try {
     if (typeof DeviceOrientationEvent !== 'undefined' &&
         typeof DeviceOrientationEvent.requestPermission === 'function') {
       const p = await DeviceOrientationEvent.requestPermission();
-      if (p !== 'granted') { toast('Necesito permiso de orientación para la brújula.'); }
+      if (p !== 'granted') toast('Necesito permiso de orientación para la brújula.');
     }
   } catch (_) {}
 
   try {
-    arStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' } }, audio: false
-    });
-  } catch (e) {
-    toast('No se pudo abrir la cámara. Revisa los permisos.'); return;
-  }
+    arStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+  } catch (e) { toast('No se pudo abrir la cámara. Revisa los permisos.'); return; }
+
   $('arVideo').srcObject = arStream;
   $('ar').style.display = 'block';
   $('arName').textContent = $('sName').textContent;
   startCompass();
   updateAR();
 }
-
 function stopAR() {
   $('ar').style.display = 'none';
   if (arStream) { arStream.getTracks().forEach(t => t.stop()); arStream = null; }
   stopCompass();
 }
-
 function startCompass() {
   window.addEventListener('deviceorientationabsolute', onOrient, true);
   window.addEventListener('deviceorientation', onOrient, true);
@@ -343,26 +394,18 @@ function stopCompass() {
 }
 function onOrient(e) {
   let h = null;
-  if (typeof e.webkitCompassHeading === 'number') {
-    h = e.webkitCompassHeading;                       // iOS: already 0 = North, clockwise
-  } else if (e.absolute && typeof e.alpha === 'number') {
-    h = 360 - e.alpha;                                // Android absolute
-  } else if (typeof e.alpha === 'number') {
-    h = 360 - e.alpha;
-  }
+  if (typeof e.webkitCompassHeading === 'number') h = e.webkitCompassHeading;
+  else if (typeof e.alpha === 'number') h = 360 - e.alpha;
   if (h != null) {
-    // adjust for screen rotation
     const so = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
     heading = (h + so + 360) % 360;
     updateAR();
   }
 }
-
 function updateAR() {
   if (!selected || !userPos || $('ar').style.display !== 'block') return;
   const dist = haversine(userPos.lat, userPos.lon, selected.lat, selected.lon);
   const brg = bearing(userPos.lat, userPos.lon, selected.lat, selected.lon);
-
   const dEl = $('arDist'), hintEl = $('arHint');
   if (dist < 12) {
     dEl.textContent = '¡Ya casi!'; dEl.classList.add('ar-arrived');
@@ -373,24 +416,28 @@ function updateAR() {
       ? 'Mueve el móvil en forma de 8 para calibrar la brújula'
       : 'Camina en la dirección de la flecha';
   }
-
   const rot = heading == null ? 0 : (brg - heading + 360) % 360;
   $('arArrow').style.transform = `rotate(${rot}deg)`;
 }
 
-/* re-evaluate distances if user rotates device orientation */
+/* ============================================================
+   UI wiring (filtros) + BOOT
+   ============================================================ */
+$('count').addEventListener('click', openFilters);
+$('filterClose').addEventListener('click', closeFilters);
+$('filterApply').addEventListener('click', closeFilters);
+$('fOper').addEventListener('change', onFilterChange);
+$('fUso').querySelectorAll('button').forEach(b =>
+  b.addEventListener('click', () => {
+    $('fUso').querySelectorAll('button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    onFilterChange();
+  }));
+
 window.addEventListener('orientationchange', () => { if (map) setTimeout(() => map.invalidateSize(), 300); });
 
-/* ============================================================
-   BOOT — arranque de la app
-   ============================================================ */
 (async function boot() {
   try { await ensureData(); }
-  catch (e) {
-    $('updatedText').textContent = 'No se pudo cargar la base de datos (revisa tu conexión).';
-  }
-  // register service worker for offline / installability
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  }
+  catch (e) { $('updatedText').textContent = 'No se pudo cargar la base de datos.'; }
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

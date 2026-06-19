@@ -18,11 +18,13 @@
   <section id="splash">
     <img class="logo" src="icon.svg" alt="Icono de una fuente">
     <h1>Fuentes de Madrid</h1>
-    <p class="tag">Tu agua para beber, más cerca</p>
+    <p class="tag">¿Dónde está la fuente más cercana?</p>
     <p class="desc">
-      Encuentra la fuente pública de agua potable más cercana.
-      Para mostrártela en el mapa necesitamos acceder a tu <strong>ubicación</strong>.
-      No se guarda ni se comparte: se usa solo en tu móvil.
+      Encuentra la fuente pública de agua potable más cercana, según los
+      <a href="https://datos.madrid.es/dataset/300051-0-fuentes" target="_blank" rel="noopener">datos oficiales del Ayuntamiento</a>.
+    </p>
+    <p class="desc privacy">
+      La ubicación se usa únicamente para ajustar el mapa y no se guarda de ningún modo: se usa solo en tu móvil.
     </p>
     <button id="askLocation" class="btn">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
@@ -39,7 +41,10 @@
     <header class="bar">
       <img src="icon.svg" alt="">
       <span class="t">Fuentes de Madrid</span>
-      <span class="count" id="count">—</span>
+      <button class="count" id="count" title="Filtrar fuentes" aria-label="Filtrar fuentes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+        <span id="countN">—</span>
+      </button>
     </header>
 
     <div id="map"></div>
@@ -47,7 +52,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
     </button>
 
-    <footer class="bar">Creado con <span class="heart">&lt;3</span> por Ivan</footer>
+    <footer class="bar">Creado por Ivan with <span class="heart">❤️</span> y mucha IA</footer>
   </div>
 
   <!-- ============ INFO SHEET ============ -->
@@ -67,6 +72,33 @@
         Ver con AR
       </button>
     </div>
+  </div>
+
+  <!-- ============ FILTER SHEET ============ -->
+  <div id="filterSheet" role="dialog" aria-modal="true" aria-label="Filtrar fuentes">
+    <div class="grip"></div>
+    <button class="close" id="filterClose" aria-label="Cerrar">×</button>
+    <h2 class="name">Filtrar fuentes</h2>
+
+    <div class="fgroup">
+      <div class="flabel">Estado</div>
+      <label class="switch">
+        <input type="checkbox" id="fOper" checked>
+        <span class="track"><span class="knob"></span></span>
+        <span class="stext">Solo fuentes operativas</span>
+      </label>
+    </div>
+
+    <div class="fgroup">
+      <div class="flabel">¿Para quién?</div>
+      <div class="segment" id="fUso">
+        <button data-uso="todas" class="active">Todas</button>
+        <button data-uso="personas">Personas</button>
+        <button data-uso="perros">Perros 🐶</button>
+      </div>
+    </div>
+
+    <button class="btn" id="filterApply">Ver <span id="filterCount">—</span> fuentes</button>
   </div>
 
   <!-- ============ AR OVERLAY ============ -->
