@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.0';
+const APP_VERSION = '1.1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
 const MARKER_CAP = 350;          // máx. marcadores dibujados a la vez (rendimiento)
 const MIN_RADIUS = 70;           // m: evita sobre-acercar si la fuente está pegada
@@ -450,6 +450,25 @@ function updateAR() {
    UI wiring (filtros) + BOOT
    ============================================================ */
 if ($('appVersion')) $('appVersion').textContent = 'v' + APP_VERSION;
+
+/* Botón "actualizar": elimina service workers + cachés y recarga limpio.
+   La escotilla de emergencia contra la caché obstinada de las PWA. */
+async function forceUpdate(ev) {
+  if (ev) ev.preventDefault();
+  toast('Actualizando…');
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+    if (self.caches) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+  } catch (_) {}
+  location.replace(location.pathname + '?u=' + Date.now());   // recarga sin caché
+}
+if ($('forceUpdate')) $('forceUpdate').addEventListener('click', forceUpdate);
 
 $('count').addEventListener('click', openFilters);
 $('filterClose').addEventListener('click', closeFilters);

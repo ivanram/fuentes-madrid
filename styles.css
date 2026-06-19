@@ -84,6 +84,12 @@ footer.bar{
   padding:9px;background:var(--card);border-top:1px solid var(--line);
 }
 footer.bar .heart{color:#e25563}
+footer.bar .refresh-link{
+  border:none;background:none;cursor:pointer;
+  color:var(--blue-d);font:inherit;font-size:.78rem;font-weight:600;
+  padding:0 0 0 2px;text-decoration:underline;text-underline-offset:2px;
+}
+footer.bar .refresh-link:active{opacity:.6}
 
 /* ---------- Leaflet marker tweaks ---------- */
 .user-dot{filter:drop-shadow(0 3px 5px rgba(0,0,0,.3))}

@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="icon.svg">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=1.1">
 </head>
 <body>
 
@@ -53,7 +53,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
     </button>
 
-    <footer class="bar">Creado por Ivan with <span class="heart">❤️</span> y mucha IA</footer>
+    <footer class="bar">
+      Creado por Ivan con <span class="heart">❤️</span> y mucha IA
+      <button id="forceUpdate" class="refresh-link" title="Borra la caché y recarga la última versión">· actualizar</button>
+    </footer>
   </div>
 
   <!-- ============ INFO SHEET ============ -->
@@ -120,6 +123,6 @@
   <div id="toast"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
-  <script src="app.js"></script>
+  <script src="app.js?v=1.1"></script>
 </body>
 </html>
