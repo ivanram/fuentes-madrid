@@ -5,12 +5,13 @@
 'use strict';
 
 /* ---------- Config ---------- */
+const APP_VERSION = '1.0';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
 const MARKER_CAP = 350;          // máx. marcadores dibujados a la vez (rendimiento)
 const MIN_RADIUS = 70;           // m: evita sobre-acercar si la fuente está pegada
 
 /* ---------- State ---------- */
-let map, userMarker, accCircle, radiusCircle, fountainLayer;
+let map, userMarker, accCircle, fountainLayer;
 let allFountains = [];           // todas las fuentes del dataset
 let fountains = [];              // subconjunto activo tras aplicar filtros
 const shown = new Set();         // fuentes con marcador actualmente en el mapa
@@ -192,14 +193,29 @@ function userIcon() {
       <circle cx="15" cy="15" r="7.5" fill="#1f7fe0" stroke="#fff" stroke-width="3.2"/></svg></div>`
   });
 }
-function fountainIcon(off) {
+function fountainIcon(f) {
+  const off = !isOperative(f);
+  const u = (f.props.USO || '').toUpperCase();
+  const dog = (u === 'MASCOTAS' || u === 'MIXTO');   // apta para perros
   const color = off ? '#9aa7b6' : '#1f7fe0';
+  const inner = dog
+    ? `<circle cx="17" cy="23.5" r="8" fill="#fff"/>
+       <g transform="translate(17 23.5)">
+         <ellipse cx="-5.6" cy="0.3" rx="2.1" ry="3.6" fill="${color}"/>
+         <ellipse cx="5.6" cy="0.3" rx="2.1" ry="3.6" fill="${color}"/>
+         <circle r="5.4" fill="${color}"/>
+         <circle cx="-1.9" cy="-1.2" r="0.95" fill="#fff"/>
+         <circle cx="1.9" cy="-1.2" r="0.95" fill="#fff"/>
+         <ellipse cy="1.9" rx="2.3" ry="1.9" fill="#fff"/>
+         <circle cy="1.2" r="0.7" fill="${color}"/>
+       </g>`
+    : `<path d="M17 12 c-3 4 -5 6.5 -5 9 a5 5 0 0 0 10 0 c0 -2.5 -2 -5 -5 -9 z" fill="#fff"/>`;
   return L.divIcon({
     className: '', iconSize: [34, 42], iconAnchor: [17, 40], popupAnchor: [0, -38],
     html: `<div class="fountain-pin${off ? ' off' : ''}">
       <svg width="34" height="42" viewBox="0 0 34 42">
         <path d="M17 1 C17 1 4 15 4 25 a13 13 0 0 0 26 0 C30 15 17 1 17 1 Z" fill="${color}" stroke="#fff" stroke-width="2.5"/>
-        <path d="M17 12 c-3 4 -5 6.5 -5 9 a5 5 0 0 0 10 0 c0 -2.5 -2 -5 -5 -9 z" fill="#fff"/>
+        ${inner}
       </svg></div>`
   });
 }
@@ -255,7 +271,7 @@ function renderMarkers() {
   }
   for (const f of inView) {
     if (!f.marker) {
-      f.marker = L.marker([f.lat, f.lon], { icon: fountainIcon(!isOperative(f)) }).on('click', () => openSheet(f));
+      f.marker = L.marker([f.lat, f.lon], { icon: fountainIcon(f) }).on('click', () => openSheet(f));
       fountainLayer.addLayer(f.marker); shown.add(f);
     }
   }
@@ -271,15 +287,19 @@ function nearest() { return fountains.length ? fountains[0] : null; }
 /* la vista inicial se ajusta al radio de la fuente más cercana */
 function fitInitialView() {
   if (!userPos || !map) return;
-  if (radiusCircle) { map.removeLayer(radiusCircle); radiusCircle = null; }
   const near = nearest();
   if (!near) { map.setView([userPos.lat, userPos.lon], 15); toast('No hay fuentes con estos filtros.'); return; }
 
+  // Encuadra un radio alrededor del usuario igual a la distancia de la fuente
+  // más cercana — sin dibujar ningún círculo en el mapa.
   const radius = Math.max(near.dist * 1.25, MIN_RADIUS);
-  radiusCircle = L.circle([userPos.lat, userPos.lon], {
-    radius, color: '#1f7fe0', weight: 1.5, dashArray: '6 6', opacity: .5, fillOpacity: .04
-  }).addTo(map);
-  map.fitBounds(radiusCircle.getBounds(), { padding: [50, 50], maxZoom: 18 });
+  const dLat = radius / 111320;
+  const dLon = radius / (111320 * Math.cos(toRad(userPos.lat)));
+  const bounds = L.latLngBounds(
+    [userPos.lat - dLat, userPos.lon - dLon],
+    [userPos.lat + dLat, userPos.lon + dLon]
+  );
+  map.fitBounds(bounds, { padding: [40, 40], maxZoom: 18 });
   toast(`Fuente más cercana: ${fmtDist(near.dist)}`);
 }
 
@@ -429,6 +449,8 @@ function updateAR() {
 /* ============================================================
    UI wiring (filtros) + BOOT
    ============================================================ */
+if ($('appVersion')) $('appVersion').textContent = 'v' + APP_VERSION;
+
 $('count').addEventListener('click', openFilters);
 $('filterClose').addEventListener('click', closeFilters);
 $('filterApply').addEventListener('click', closeFilters);

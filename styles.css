@@ -63,6 +63,7 @@ button{font-family:inherit}
 }
 #splash .updated .dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
 #splash .err{color:#c0392b;font-size:.86rem;margin-top:14px;min-height:1em;max-width:320px}
+#splash .version{margin-top:10px;font-size:.74rem;color:#9aa7b6;letter-spacing:.04em}
 
 /* ---------- App shell ---------- */
 #app{position:fixed;inset:0;display:none;flex-direction:column}
