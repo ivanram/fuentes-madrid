@@ -1,0 +1,15 @@
+{
+  "name": "Fuentes de Madrid",
+  "short_name": "Fuentes",
+  "description": "Encuentra la fuente pública de agua para beber más cercana en Madrid.",
+  "lang": "es",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#eaf4ff",
+  "theme_color": "#1f7fe0",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

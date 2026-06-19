@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#1f7fe0">
+  <title>Fuentes de Madrid · Localizador de agua para beber</title>
+  <meta name="description" content="Encuentra la fuente de agua para beber más cercana en Madrid.">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ============ SPLASH ============ -->
+  <section id="splash">
+    <img class="logo" src="icon.svg" alt="Icono de una fuente">
+    <h1>Fuentes de Madrid</h1>
+    <p class="tag">Tu agua para beber, más cerca</p>
+    <p class="desc">
+      Encuentra la fuente pública de agua potable más cercana.
+      Para mostrártela en el mapa necesitamos acceder a tu <strong>ubicación</strong>.
+      No se guarda ni se comparte: se usa solo en tu móvil.
+    </p>
+    <button id="askLocation" class="btn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
+      Permitir ubicación
+    </button>
+    <p class="err" id="splashErr"></p>
+    <p class="updated" id="updatedLine">
+      <span class="dot"></span><span id="updatedText">Cargando base de datos…</span>
+    </p>
+  </section>
+
+  <!-- ============ APP ============ -->
+  <div id="app">
+    <header class="bar">
+      <img src="icon.svg" alt="">
+      <span class="t">Fuentes de Madrid</span>
+      <span class="count" id="count">—</span>
+    </header>
+
+    <div id="map"></div>
+    <button class="recenter" id="recenter" title="Centrar en mi posición" aria-label="Centrar en mi posición">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+    </button>
+
+    <footer class="bar">Creado con <span class="heart">&lt;3</span> por Ivan</footer>
+  </div>
+
+  <!-- ============ INFO SHEET ============ -->
+  <div id="sheet" role="dialog" aria-modal="true" aria-label="Información de la fuente">
+    <div class="grip"></div>
+    <button class="close" id="sheetClose" aria-label="Cerrar">×</button>
+    <h2 class="name" id="sName">Fuente</h2>
+    <p class="addr" id="sAddr"></p>
+    <div class="chips" id="sChips"></div>
+    <div class="actions">
+      <button class="btn" id="btnRoute">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M6 17V9a4 4 0 0 1 4-4h4"/></svg>
+        Ruta andando
+      </button>
+      <button class="btn ghost" id="btnAR">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1668bd" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>
+        Ver con AR
+      </button>
+    </div>
+  </div>
+
+  <!-- ============ AR OVERLAY ============ -->
+  <div id="ar">
+    <video id="arVideo" autoplay muted playsinline></video>
+    <div class="veil"></div>
+    <button class="ar-close" id="arClose" aria-label="Salir de AR">×</button>
+    <div class="ar-arrow" id="arArrow">
+      <svg viewBox="0 0 100 100"><path d="M50 6 L74 64 L50 50 L26 64 Z" fill="#3ea8ff" stroke="#fff" stroke-width="3" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="ar-info">
+      <div class="d" id="arDist">—</div>
+      <div class="n" id="arName"></div>
+      <div class="hint" id="arHint">Gira el móvil hasta alinear la flecha hacia arriba</div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
+  <script src="app.js"></script>
+</body>
+</html>
