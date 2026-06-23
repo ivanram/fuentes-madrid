@@ -5,14 +5,15 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.3';
+const APP_VERSION = '1.5';
 const FAV_KEY = 'fuentes_favs_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
 const MARKER_CAP = 350;          // máx. marcadores dibujados a la vez (rendimiento)
 const MIN_RADIUS = 70;           // m: evita sobre-acercar si la fuente está pegada
 const COURSE_MIN_MOVE = 6;       // m: movimiento mínimo para recalcular el rumbo (modo brújula)
 const BEARING_SIGN = 1;          // si el modo brújula gira al revés, cambiar a -1
-const HEADING_SMOOTH = 0.12;     // suavizado de la brújula en AR (0=lento, 1=instantáneo)
+const HEADING_SMOOTH = 0.07;     // suavizado de la brújula en AR (más bajo = más lento pero ignora saltos bruscos)
+const HEADING_JUMP = 100;        // grados: por encima de un cambio así, lo tratamos como ruido del sensor y lo amortiguamos
 const COURSE_SMOOTH = 0.35;      // suavizado del rumbo del mapa
 
 /* ---------- State ---------- */
@@ -255,7 +256,7 @@ function fountainIcon(f) {
   });
 }
 function nearestIcon(f) {
-  const inner = isDog(f) ? pawInner('#0a93e6') : DROP_PLAIN;
+  const inner = isFav(f) ? HEART_INNER : (isDog(f) ? pawInner('#0a93e6') : DROP_PLAIN);   // la más cercana también muestra corazón si es favorita
   return L.divIcon({
     className: '', iconSize: [46, 57], iconAnchor: [23, 53], popupAnchor: [0, -50],
     html: `<div class="fountain-pin nearest-pin">${dropSvg(46, 57, '#19b3ff', inner)}</div>`
@@ -516,14 +517,20 @@ function stopCompass() {
 function onOrient(e) {
   if (typeof e.beta === 'number') {
     const p = Math.max(0, Math.min(90, e.beta));        // 0 plano (mira al suelo) … 90 vertical
-    arPitch = (arPitch == null) ? p : arPitch + 0.16 * (p - arPitch);
+    arPitch = (arPitch == null) ? p : arPitch + 0.10 * (p - arPitch);
   }
   let h = null;
   if (typeof e.webkitCompassHeading === 'number') h = e.webkitCompassHeading;
   else if (typeof e.alpha === 'number') h = 360 - e.alpha;
   if (h != null) {
     const so = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
-    arHeading = smoothAngle(arHeading, (h + so + 360) % 360, HEADING_SMOOTH);   // filtro de paso bajo
+    const raw = (h + so + 360) % 360;
+    let alpha = HEADING_SMOOTH;
+    if (arHeading != null) {
+      const delta = Math.abs(((raw - arHeading + 540) % 360) - 180);
+      if (delta > HEADING_JUMP) alpha = HEADING_SMOOTH * 0.2;   // salto brusco → casi lo ignoramos (anti-glitch)
+    }
+    arHeading = smoothAngle(arHeading, raw, alpha);            // filtro de paso bajo
   }
   updateAR();
 }
