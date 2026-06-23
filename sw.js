@@ -2,17 +2,18 @@
    Estrategia "network-first": si hay conexión, siempre sirve la versión
    más reciente (así las actualizaciones se ven al instante); si no hay
    conexión, tira de la copia cacheada. Mantiene la app usable offline. */
-const CACHE = 'fuentes-madrid-v6';
+const CACHE = 'fuentes-madrid-v7';
 const SHELL = [
   './',
   './index.html',
-  './styles.css',
-  './app.js',
+  './styles.css?v=1.2',
+  './app.js?v=1.2',
   './fuentes.json',
   './icon.svg',
   './manifest.webmanifest',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',
-  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js',
+  'https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js'
 ];
 
 self.addEventListener('install', (e) => {

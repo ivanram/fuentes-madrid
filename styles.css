@@ -231,3 +231,67 @@ header.bar .count svg{width:15px;height:15px}
 
 /* sheet estado chip: bad state */
 .chip.bad{color:#c0392b}
+
+/* ---------- Loading screen ---------- */
+#loading{
+  position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:22px;
+  background:linear-gradient(170deg,#eaf4ff 0%,#f4f8fc 60%);
+}
+#loading .logo{width:88px;height:88px;border-radius:24px;box-shadow:var(--shadow);animation:float 3.4s ease-in-out infinite}
+#loading .load-row{display:flex;align-items:center;gap:10px;color:var(--muted);font-weight:600}
+#loading .load-row .spin{border-color:rgba(31,127,224,.3);border-top-color:var(--blue)}
+
+/* splash oculta por defecto: la decide el arranque */
+#splash{display:none}
+
+/* ---------- Header title button ---------- */
+header.bar .t{
+  background:none;border:none;cursor:pointer;padding:0;font-family:inherit;
+  font-weight:700;font-size:1.02rem;letter-spacing:-.01em;color:var(--ink);
+}
+header.bar .t:active{opacity:.6}
+
+/* ---------- Map control buttons (stacked, bottom-right) ---------- */
+.mapctl{
+  position:absolute;right:14px;z-index:600;
+  width:50px;height:50px;border-radius:50%;border:none;cursor:pointer;
+  background:#fff;box-shadow:var(--shadow);
+  display:flex;align-items:center;justify-content:center;
+}
+.mapctl svg{width:24px;height:24px}
+#recenter{bottom:92px}
+#recenter svg{stroke:var(--blue-d);fill:none}
+#mapMode{bottom:150px}
+#mapMode .needle{transition:transform .25s ease-out}
+#mapMode.active{background:var(--blue)}
+#mapMode.active .needle polygon:last-child{fill:#bfe0ff}
+
+/* ---------- Nearest fountain pulse ---------- */
+.nearest-pin{animation:nearpulse 1.7s ease-in-out infinite;transform-origin:50% 92%}
+@keyframes nearpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.09)}}
+
+/* ---------- About overlay ---------- */
+#about{
+  position:fixed;inset:0;z-index:80;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  padding:34px 26px;background:linear-gradient(170deg,#eaf4ff 0%,#f4f8fc 60%);
+  transform:translateY(100%);transition:transform .3s cubic-bezier(.2,.8,.2,1);
+}
+#about.open{transform:translateY(0)}
+#about .logo{width:84px;height:84px;border-radius:24px;box-shadow:var(--shadow)}
+#about h1{margin:18px 0 4px;font-size:1.5rem;letter-spacing:-.02em}
+#about .tag{color:var(--blue-d);font-weight:600;margin:0 0 16px}
+#about .desc{color:var(--muted);max-width:350px;line-height:1.5;margin:0 0 14px}
+#about .desc a{color:var(--blue-d);font-weight:600;text-decoration:none;border-bottom:1.5px solid rgba(31,127,224,.3)}
+#about .updated{margin-top:8px;font-size:.84rem;color:var(--muted);display:flex;gap:7px;align-items:center}
+#about .updated .dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+#about .version{margin-top:12px;font-size:.78rem;color:#9aa7b6;letter-spacing:.04em}
+#about .credit{margin-top:4px;font-size:.8rem;color:var(--muted)}
+#about .close{
+  position:absolute;top:16px;right:16px;border:none;background:#fff;
+  width:38px;height:38px;border-radius:50%;cursor:pointer;color:var(--muted);font-size:1.2rem;box-shadow:var(--shadow);
+}
+
+/* smoother AR arrow */
+#ar .ar-arrow{transition:transform .2s ease-out}

@@ -10,11 +10,17 @@
   <link rel="apple-touch-icon" href="icon.svg">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer">
-  <link rel="stylesheet" href="styles.css?v=1.1">
+  <link rel="stylesheet" href="styles.css?v=1.2">
 </head>
 <body>
 
-  <!-- ============ SPLASH ============ -->
+  <!-- ============ LOADING (arranque silencioso) ============ -->
+  <section id="loading">
+    <img class="logo" src="icon.svg" alt="">
+    <div class="load-row"><span class="spin"></span><span>Cargando fuentes…</span></div>
+  </section>
+
+  <!-- ============ SPLASH (solo si falta permiso) ============ -->
   <section id="splash">
     <img class="logo" src="icon.svg" alt="Icono de una fuente">
     <h1>Fuentes de Madrid</h1>
@@ -31,17 +37,14 @@
       Permitir ubicación
     </button>
     <p class="err" id="splashErr"></p>
-    <p class="updated" id="updatedLine">
-      <span class="dot"></span><span id="updatedText">Cargando base de datos…</span>
-    </p>
-    <p class="version" id="appVersion">v1.0</p>
+    <p class="version" id="appVersion">v1.2</p>
   </section>
 
   <!-- ============ APP ============ -->
   <div id="app">
     <header class="bar">
       <img src="icon.svg" alt="">
-      <span class="t">Fuentes de Madrid</span>
+      <button class="t" id="aboutBtn" title="Acerca de">Fuentes de Madrid</button>
       <button class="count" id="count" title="Filtrar fuentes" aria-label="Filtrar fuentes">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
         <span id="countN">—</span>
@@ -49,7 +52,11 @@
     </header>
 
     <div id="map"></div>
-    <button class="recenter" id="recenter" title="Centrar en mi posición" aria-label="Centrar en mi posición">
+
+    <button class="mapctl mapmode" id="mapMode" title="Orientación del mapa" aria-label="Orientación del mapa">
+      <svg class="needle" viewBox="0 0 24 24"><polygon points="12,3 8,14 12,11.5 16,14" fill="#e25563"/><polygon points="12,21 8,10 12,12.5 16,10" fill="#9aa7b6"/></svg>
+    </button>
+    <button class="mapctl recenter" id="recenter" title="Centrar en mi posición" aria-label="Centrar en mi posición">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
     </button>
 
@@ -83,7 +90,6 @@
     <div class="grip"></div>
     <button class="close" id="filterClose" aria-label="Cerrar">×</button>
     <h2 class="name">Filtrar fuentes</h2>
-
     <div class="fgroup">
       <div class="flabel">Estado</div>
       <label class="switch">
@@ -92,17 +98,34 @@
         <span class="stext">Solo fuentes operativas</span>
       </label>
     </div>
-
     <div class="fgroup">
       <div class="flabel">¿Para quién?</div>
       <div class="segment" id="fUso">
         <button data-uso="todas" class="active">Todas</button>
         <button data-uso="personas">Personas</button>
-        <button data-uso="perros">Perros 🐶</button>
+        <button data-uso="perros">Perros 🐾</button>
       </div>
     </div>
-
     <button class="btn" id="filterApply">Ver <span id="filterCount">—</span> fuentes</button>
+  </div>
+
+  <!-- ============ ABOUT ============ -->
+  <div id="about">
+    <button class="close" id="aboutClose" aria-label="Cerrar">×</button>
+    <img class="logo" src="icon.svg" alt="">
+    <h1>Fuentes de Madrid</h1>
+    <p class="tag">¿Dónde está la fuente más cercana?</p>
+    <p class="desc">
+      Encuentra la fuente pública de agua potable más cercana, según los
+      <a href="https://datos.madrid.es/dataset/300051-0-fuentes" target="_blank" rel="noopener">datos oficiales del Ayuntamiento de Madrid</a>
+      (licencia CC BY 4.0).
+    </p>
+    <p class="desc privacy">
+      La ubicación se usa únicamente para ajustar el mapa y no se guarda de ningún modo: se usa solo en tu móvil.
+    </p>
+    <p class="updated"><span class="dot"></span><span id="updatedText">—</span></p>
+    <p class="version" id="aboutVersion">v1.2</p>
+    <p class="credit">Creado por Ivan con ❤️ y mucha IA</p>
   </div>
 
   <!-- ============ AR OVERLAY ============ -->
@@ -123,6 +146,7 @@
   <div id="toast"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
-  <script src="app.js?v=1.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js" referrerpolicy="no-referrer"></script>
+  <script src="app.js?v=1.2"></script>
 </body>
 </html>
