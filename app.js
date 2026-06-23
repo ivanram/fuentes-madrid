@@ -5,13 +5,14 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.2';
+const APP_VERSION = '1.3';
+const FAV_KEY = 'fuentes_favs_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
 const MARKER_CAP = 350;          // máx. marcadores dibujados a la vez (rendimiento)
 const MIN_RADIUS = 70;           // m: evita sobre-acercar si la fuente está pegada
 const COURSE_MIN_MOVE = 6;       // m: movimiento mínimo para recalcular el rumbo (modo brújula)
 const BEARING_SIGN = 1;          // si el modo brújula gira al revés, cambiar a -1
-const HEADING_SMOOTH = 0.18;     // suavizado de la brújula en AR (0=lento, 1=instantáneo)
+const HEADING_SMOOTH = 0.12;     // suavizado de la brújula en AR (0=lento, 1=instantáneo)
 const COURSE_SMOOTH = 0.35;      // suavizado del rumbo del mapa
 
 /* ---------- State ---------- */
@@ -24,7 +25,20 @@ let userPos = null;
 let geoWatchId = null;
 let selected = null;
 let dataUpdated = Date.now();
-const filters = { operativeOnly: true, uso: 'todas' };
+const filters = { operativeOnly: true, uso: 'todas', favOnly: false };
+
+/* favoritas (persisten en el navegador) */
+let favs = new Set();
+try { favs = new Set(JSON.parse(localStorage.getItem(FAV_KEY) || '[]')); } catch (_) {}
+function favKey(f) { return f.lat.toFixed(5) + ',' + f.lon.toFixed(5); }
+function isFav(f) { return favs.has(favKey(f)); }
+function saveFavs() { try { localStorage.setItem(FAV_KEY, JSON.stringify([...favs])); } catch (_) {} }
+function toggleFav(f) {
+  const k = favKey(f);
+  if (favs.has(k)) favs.delete(k); else favs.add(k);
+  saveFavs();
+  return favs.has(k);
+}
 
 /* rotación del mapa */
 let mapMode = 'north';           // north | manual | compass
@@ -34,6 +48,7 @@ let courseSmoothed = null;       // rumbo suavizado (deg)
 
 /* AR */
 let arHeading = null;            // brújula suavizada (deg)
+let arPitch = null;              // inclinación del móvil suavizada (0 plano … 90 vertical)
 
 /* ---------- Helpers ---------- */
 const $ = (id) => document.getElementById(id);
@@ -172,6 +187,7 @@ $('aboutClose').addEventListener('click', () => $('about').classList.remove('ope
    FILTERS
    ============================================================ */
 function matchesFilter(f) {
+  if (filters.favOnly && !isFav(f)) return false;
   if (filters.operativeOnly && !isOperative(f)) return false;
   const u = (f.props.USO || '').toUpperCase();
   if (filters.uso === 'personas' && !(u === 'PERSONAS' || u === 'MIXTO')) return false;
@@ -186,12 +202,14 @@ function applyFilters() {
 }
 function readFilterUI() {
   filters.operativeOnly = $('fOper').checked;
+  filters.favOnly = $('fFav').checked;
   const active = $('fUso').querySelector('button.active');
   filters.uso = active ? active.dataset.uso : 'todas';
 }
 function onFilterChange() { readFilterUI(); applyFilters(); renderMarkers(); }
 function openFilters() {
   $('fOper').checked = filters.operativeOnly;
+  $('fFav').checked = filters.favOnly;
   $('fUso').querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.uso === filters.uso));
   $('filterCount').textContent = fountains.length;
   $('filterSheet').classList.add('open');
@@ -225,10 +243,12 @@ function pawInner(color) {
       <circle cx="21.4" cy="24" r="1.5"/>
     </g>`;
 }
+const HEART_INNER = `<path d="M17 29 c-4.6 -3.6 -7.4 -6.1 -7.4 -9.4 a3.6 3.6 0 0 1 7.4 -1.4 a3.6 3.6 0 0 1 7.4 1.4 c0 3.3 -2.8 5.8 -7.4 9.4 z" fill="#fff"/>`;
 function fountainIcon(f) {
   const off = !isOperative(f);
-  const color = off ? '#9aa7b6' : '#1f7fe0';
-  const inner = isDog(f) ? pawInner(color) : DROP_PLAIN;
+  let color, inner;
+  if (isFav(f)) { color = off ? '#7fb6c0' : '#00bcd4'; inner = HEART_INNER; }       // favorita: gota cian con corazón
+  else { color = off ? '#9aa7b6' : '#1f7fe0'; inner = isDog(f) ? pawInner(color) : DROP_PLAIN; }
   return L.divIcon({
     className: '', iconSize: [34, 42], iconAnchor: [17, 40], popupAnchor: [0, -38],
     html: `<div class="fountain-pin${off ? ' off' : ''}">${dropSvg(34, 42, color, inner)}</div>`
@@ -415,7 +435,14 @@ function openSheet(f) {
   chips.push(`<span class="chip">${USO_ICON[usoKey] || ''} ${usoTxt}</span>`);
   chips.push(`<span class="chip ${operative ? 'ok' : 'bad'}">${operative ? checkSvg() : crossSvg()} ${operative ? 'Operativa' : titleCase(p.ESTADO || 'Sin servicio')}</span>`);
   $('sChips').innerHTML = chips.join('');
+  updateFavBtn();
   $('sheet').classList.add('open');
+}
+function updateFavBtn() {
+  if (!selected) return;
+  const on = isFav(selected);
+  $('favBtn').classList.toggle('on', on);
+  $('favBtn').setAttribute('aria-pressed', on ? 'true' : 'false');
 }
 function updateSheetDistance() {
   if (!selected) return;
@@ -427,6 +454,14 @@ function checkSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="curre
 function crossSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>'; }
 
 $('sheetClose').addEventListener('click', () => { $('sheet').classList.remove('open'); selected = null; });
+
+$('favBtn').addEventListener('click', () => {
+  if (!selected) return;
+  toggleFav(selected);
+  updateFavBtn();
+  if (selected.marker) selected.marker.setIcon(renderedNearest === selected ? nearestIcon(selected) : fountainIcon(selected));
+  if (filters.favOnly) { applyFilters(); renderMarkers(); }
+});
 
 $('btnRoute').addEventListener('click', () => {
   if (!selected || !userPos) return;
@@ -460,12 +495,13 @@ async function startAR() {
   $('arVideo').srcObject = arStream;
   $('ar').style.display = 'block';
   $('arName').textContent = $('sName').textContent;
-  arHeading = null;
+  arHeading = null; arPitch = null;
   startCompass();
   updateAR();
 }
 function stopAR() {
   $('ar').style.display = 'none';
+  $('arTarget').style.display = 'none';
   if (arStream) { arStream.getTracks().forEach(t => t.stop()); arStream = null; }
   stopCompass();
 }
@@ -478,13 +514,17 @@ function stopCompass() {
   window.removeEventListener('deviceorientation', onOrient, true);
 }
 function onOrient(e) {
+  if (typeof e.beta === 'number') {
+    const p = Math.max(0, Math.min(90, e.beta));        // 0 plano (mira al suelo) … 90 vertical
+    arPitch = (arPitch == null) ? p : arPitch + 0.16 * (p - arPitch);
+  }
   let h = null;
   if (typeof e.webkitCompassHeading === 'number') h = e.webkitCompassHeading;
   else if (typeof e.alpha === 'number') h = 360 - e.alpha;
-  if (h == null) return;
-  const so = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
-  const raw = (h + so + 360) % 360;
-  arHeading = smoothAngle(arHeading, raw, HEADING_SMOOTH);   // filtro de paso bajo
+  if (h != null) {
+    const so = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+    arHeading = smoothAngle(arHeading, (h + so + 360) % 360, HEADING_SMOOTH);   // filtro de paso bajo
+  }
   updateAR();
 }
 function updateAR() {
@@ -497,10 +537,25 @@ function updateAR() {
     hintEl.textContent = 'La fuente está a unos pasos de ti';
   } else {
     dEl.textContent = fmtDist(dist); dEl.classList.remove('ar-arrived');
-    hintEl.textContent = arHeading == null ? 'Mueve el móvil en forma de 8 para calibrar la brújula' : 'Camina en la dirección de la flecha';
+    hintEl.textContent = arHeading == null ? 'Mueve el móvil en forma de 8 para calibrar la brújula'
+                       : (arPitch != null && arPitch > 45 ? 'Sigue el icono o la flecha' : 'Levanta el móvil para ver la fuente');
   }
-  const rot = arHeading == null ? 0 : (brg - arHeading + 360) % 360;
-  $('arArrow').style.transform = `rotate(${rot}deg)`;
+  // diferencia más corta entre el rumbo a la fuente y hacia dónde apuntas (−180..180, 0 = de frente)
+  const offset = arHeading == null ? 0 : (((brg - arHeading + 540) % 360) - 180);
+  // inclinación del móvil: 0 plano → flecha cenital ; 1 vertical → flecha tumbada en 3D
+  const tilt = arPitch == null ? 0 : Math.max(0, Math.min(1, (arPitch - 8) / (78 - 8)));
+  $('arArrow').style.transform = `rotateX(${tilt * 70}deg) rotateZ(${offset}deg)`;
+
+  // icono del destino flotando sobre la cámara (cuando levantas el móvil y está en el campo de visión)
+  const tgt = $('arTarget');
+  if (tilt > 0.45 && Math.abs(offset) < 60) {
+    const x = 50 + (offset / 60) * 42;
+    tgt.style.left = Math.max(6, Math.min(94, x)) + '%';
+    $('arTargetDist').textContent = fmtDist(dist);
+    tgt.style.display = 'flex';
+  } else {
+    tgt.style.display = 'none';
+  }
 }
 
 /* ============================================================
@@ -527,6 +582,7 @@ $('count').addEventListener('click', openFilters);
 $('filterClose').addEventListener('click', closeFilters);
 $('filterApply').addEventListener('click', closeFilters);
 $('fOper').addEventListener('change', onFilterChange);
+$('fFav').addEventListener('change', onFilterChange);
 $('fUso').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
   $('fUso').querySelectorAll('button').forEach(x => x.classList.remove('active'));
   b.classList.add('active'); onFilterChange();

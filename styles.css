@@ -293,5 +293,32 @@ header.bar .t:active{opacity:.6}
   width:38px;height:38px;border-radius:50%;cursor:pointer;color:var(--muted);font-size:1.2rem;box-shadow:var(--shadow);
 }
 
-/* smoother AR arrow */
-#ar .ar-arrow{transition:transform .2s ease-out}
+/* ---------- Favorite button (info sheet) ---------- */
+#sheet .fav{
+  position:absolute;top:10px;right:54px;border:none;background:var(--bg);
+  width:38px;height:38px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+#sheet .fav svg{width:21px;height:21px;fill:none;stroke:#e2476a;stroke-width:2}
+#sheet .fav.on{background:#ffe9ec}
+#sheet .fav.on svg{fill:#e2476a;stroke:#e2476a}
+
+/* ---------- AR 3D arrow + target marker ---------- */
+#ar .ar-stage{
+  position:absolute;top:50%;left:50%;width:170px;height:170px;margin:-85px 0 0 -85px;
+  perspective:520px;perspective-origin:50% 60%;z-index:4;
+}
+#ar .ar-arrow{
+  position:absolute;inset:0;width:100%;height:100%;margin:0;
+  transform-style:preserve-3d;transform-origin:50% 60%;transition:transform .18s ease-out;
+}
+#ar .ar-arrow svg{width:100%;height:100%;filter:drop-shadow(0 6px 16px rgba(0,0,0,.5))}
+#ar .ar-target{
+  position:absolute;top:34%;left:50%;transform:translate(-50%,-50%);
+  display:none;flex-direction:column;align-items:center;z-index:4;transition:left .18s ease-out;
+}
+#ar .ar-target-pin{width:54px;height:66px;filter:drop-shadow(0 4px 10px rgba(0,0,0,.55))}
+#ar .ar-target-pin svg{width:100%;height:100%}
+#ar .ar-target-d{
+  margin-top:3px;background:rgba(15,31,51,.72);color:#fff;font-weight:700;font-size:.84rem;
+  padding:3px 10px;border-radius:999px;backdrop-filter:blur(4px);
+}
