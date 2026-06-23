@@ -1,0 +1,41 @@
+name: Actualizar fuentes de Madrid
+
+on:
+  schedule:
+    - cron: '0 4 * * 1'      # cada lunes a las 04:00 UTC
+  workflow_dispatch: {}       # permite ejecutarlo a mano desde la pestaña Actions
+
+permissions:
+  contents: write             # necesario para que pueda commitear fuentes.json
+
+jobs:
+  actualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependencias
+        working-directory: scripts
+        run: npm install
+
+      - name: Regenerar fuentes.json
+        working-directory: scripts
+        run: node build-fuentes.mjs
+
+      - name: Publicar si hay cambios
+        run: |
+          if git diff --quiet -- fuentes.json; then
+            echo "Sin cambios: nada que publicar."
+          else
+            git config user.name  "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add fuentes.json
+            git commit -m "Datos de fuentes actualizados automaticamente"
+            git push
+          fi
