@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.7.3';
+const APP_VERSION = '1.7.4';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
@@ -412,13 +412,13 @@ function applyBearing() {                    // fija el giro y lo re-aplica tras
 }
 function frameTarget() {
   if (mapMode !== 'target' || !userPos || !map) return;
-  // PASO 1 (sin rotación): coloco MI UBICACIÓN centrada en la franja inferior.
-  // Centro el mapa en un punto situado por encima de mí, así mi punto cae abajo-centro.
+  // PASO 1: dejar MI UBICACIÓN abajo-centro, esté el mapa girado o no.
+  // Trabajo en coordenadas de PANTALLA (containerPoint), que SÍ tienen en cuenta la rotación.
   const z = targetZoom();
+  map.setView([userPos.lat, userPos.lon], z, { animate: false });               // 1) me centra
   const size = map.getSize();
-  const userPt = map.project([userPos.lat, userPos.lon], z);
-  const center = map.unproject(userPt.subtract([0, size.y * 0.34]), z);   // 0.34 → quedo ~84% hacia abajo
-  map.setView(center, z, { animate: false });
+  const newCenter = map.containerPointToLatLng([size.x / 2, size.y * 0.18]);     // 2) subo el centro 0.32 de la altura
+  map.setView(newCenter, z, { animate: false });                                 //    → quedo a ~82% (abajo-centro)
 }
 function updateTargetView() {               // reencuadre (al entrar o cambiar de fuente)
   if (mapMode !== 'target' || !selected || !userPos || !map) return;
