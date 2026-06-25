@@ -379,3 +379,9 @@ header.bar .iconbtn:active{ opacity:.6; }
 #settings .set-row .btn{ flex:1; }
 #settings .set-hint{ margin:10px 2px 0;font-size:.82rem;color:var(--muted); }
 .segment.grid2{ display:grid;grid-template-columns:1fr 1fr;gap:6px; }
+.swatches{ display:flex;gap:14px;flex-wrap:wrap; }
+.swatches button{
+  width:34px;height:34px;border-radius:50%;border:none;cursor:pointer;background:var(--sw);
+  box-shadow:0 1px 4px rgba(0,0,0,.25);transition:box-shadow .15s;
+}
+.swatches button.active{ box-shadow:0 0 0 3px var(--card), 0 0 0 6px var(--sw); }

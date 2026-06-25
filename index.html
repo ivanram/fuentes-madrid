@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="icon-192.png?v=1.5">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer">
-  <link rel="stylesheet" href="styles.css?v=1.9.0">
+  <link rel="stylesheet" href="styles.css?v=1.10.0">
 </head>
 <body>
 
@@ -37,14 +37,14 @@
       Permitir ubicación
     </button>
     <p class="err" id="splashErr"></p>
-    <p class="version" id="appVersion">v1.9.0</p>
+    <p class="version" id="appVersion">v1.10.0</p>
   </section>
 
   <!-- ============ APP ============ -->
   <div id="app">
     <header class="bar">
       <img src="icon-192.png?v=1.5" alt="">
-      <button class="t" id="aboutBtn" title="Acerca de">Fuentes de Madrid</button>
+      <button class="t" id="aboutBtn" title="Acerca de">Fuentes</button>
       <button class="count" id="count" title="Filtrar fuentes" aria-label="Filtrar fuentes">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
         <span id="countN">—</span>
@@ -132,7 +132,7 @@
     <p class="desc privacy">La ubicación sólo se usa para ajustar el mapa y no se transmite ni guarda en ningún sitio.</p>
     <p class="desc privacy">La configuración de fuentes favoritas se guarda de forma local en tu navegador.</p>
     <p class="updated"><span class="dot"></span><span id="updatedText">—</span></p>
-    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.9.0</span></button>
+    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.10.0</span></button>
   </div>
 
   <!-- ============ AJUSTES ============ -->
@@ -149,6 +149,17 @@
         </div>
       </div>
       <div class="fgroup">
+        <div class="flabel">Color de acento</div>
+        <div class="swatches" id="setAccent">
+          <button data-accent="blue" style="--sw:#1f7fe0" class="active" aria-label="Azul"></button>
+          <button data-accent="teal" style="--sw:#0ca7a0" aria-label="Turquesa"></button>
+          <button data-accent="green" style="--sw:#2faa4e" aria-label="Verde"></button>
+          <button data-accent="purple" style="--sw:#7c5cff" aria-label="Morado"></button>
+          <button data-accent="red" style="--sw:#e23b4e" aria-label="Rojo"></button>
+          <button data-accent="orange" style="--sw:#f08a1d" aria-label="Naranja"></button>
+        </div>
+      </div>
+      <div class="fgroup">
         <div class="flabel">Mapa</div>
         <div class="segment grid2" id="setMap">
           <button data-map="voyager" class="active">Moderno</button>
@@ -156,6 +167,7 @@
           <button data-map="positron">Claro</button>
           <button data-map="dark">Oscuro</button>
         </div>
+        <p class="set-hint">En tema oscuro se usa siempre el mapa oscuro.</p>
       </div>
       <div class="fgroup">
         <div class="flabel">Datos · favoritas y ajustes</div>
@@ -196,6 +208,6 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js" referrerpolicy="no-referrer"></script>
-  <script src="app.js?v=1.9.0"></script>
+  <script src="app.js?v=1.10.0"></script>
 </body>
 </html>

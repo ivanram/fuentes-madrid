@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.9.0';
+const APP_VERSION = '1.10.0';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
@@ -43,7 +43,7 @@ function toggleFav(f) {
    AJUSTES (tema, tema de mapa, import/export) — persistentes
    ============================================================ */
 const SETTINGS_KEY = 'fuentes_settings_v1';
-let settings = { theme: 'system', map: 'voyager' };
+let settings = { theme: 'system', map: 'voyager', accent: 'blue' };
 try { settings = Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch (_) {}
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (_) {} }
 
@@ -57,20 +57,45 @@ const MAP_TILES = {
   dark:     { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', sub: 'abcd' }
 };
 let tileLayer = null;
+let ACCENT = '#1f7fe0', ACCENT_L = '#3ea8ff';
+const ACCENTS = {
+  blue:   { main: '#1f7fe0', d: '#1668bd', l: '#3ea8ff' },
+  teal:   { main: '#0ca7a0', d: '#0a847e', l: '#2bc9c2' },
+  green:  { main: '#2faa4e', d: '#24863d', l: '#46c969' },
+  purple: { main: '#7c5cff', d: '#6442e6', l: '#9a82ff' },
+  red:    { main: '#e23b4e', d: '#c02438', l: '#f06070' },
+  orange: { main: '#f08a1d', d: '#cf6f0c', l: '#ffa84a' }
+};
 
-function applyTheme() {
+function isDark() {
   const t = settings.theme;
-  const dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+  return t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+}
+function applyTheme() {
+  const dark = isDark();
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', dark ? '#0f1620' : '#1f7fe0');
+  if (meta) meta.setAttribute('content', dark ? '#0f1620' : ACCENT);
+  applyMapTheme();   // el mapa sigue al tema: en oscuro, mapa oscuro
 }
 function applyMapTheme() {
   if (!map) return;
-  const t = MAP_TILES[settings.map] || MAP_TILES.voyager;
+  const key = isDark() ? 'dark' : settings.map;          // tema oscuro → siempre mapa oscuro
+  const t = MAP_TILES[key] || MAP_TILES.voyager;
   if (tileLayer) map.removeLayer(tileLayer);
   tileLayer = L.tileLayer(t.url, { attribution: ATTRIB, subdomains: t.sub, maxZoom: 20, detectRetina: true });
   tileLayer.addTo(map); tileLayer.setZIndex(0);
+}
+function applyAccent() {
+  const a = ACCENTS[settings.accent] || ACCENTS.blue;
+  ACCENT = a.main; ACCENT_L = a.l;
+  const s = document.documentElement.style;
+  s.setProperty('--blue', a.main); s.setProperty('--blue-d', a.d); s.setProperty('--blue-l', a.l);
+  if (!isDark()) { const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', a.main); }
+  if (map) {
+    for (const f of shown) if (f.marker) f.marker.setIcon(f === selected ? nearestIcon(f) : fountainIcon(f));
+    if (userMarker) userMarker.setIcon(userIcon());
+  }
 }
 /* refresca el tema del sistema en vivo si está en modo "sistema" */
 try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (settings.theme === 'system') applyTheme(); }); } catch (_) {}
@@ -99,12 +124,14 @@ function importData(file) {
   r.readAsText(file);
 }
 function syncSettingsUI() {
-  const st = $('setTheme'), sm = $('setMap');
+  const st = $('setTheme'), sm = $('setMap'), sa = $('setAccent');
   if (st) st.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.theme === settings.theme));
   if (sm) sm.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.map === settings.map));
+  if (sa) sa.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.accent === settings.accent));
 }
 
-applyTheme();   // aplica el tema cuanto antes (evita parpadeo)
+applyAccent();   // color de acento (variables CSS)
+applyTheme();    // tema cuanto antes (evita parpadeo)
 
 /* orientación del mapa */
 let mapMode = 'north';           // north | free
@@ -287,8 +314,8 @@ function userIcon() {
   return L.divIcon({
     className: '', iconSize: [30, 30], iconAnchor: [15, 15],
     html: `<div class="user-dot"><svg width="30" height="30" viewBox="0 0 30 30">
-      <circle cx="15" cy="15" r="14" fill="#1f7fe0" fill-opacity="0.18"/>
-      <circle cx="15" cy="15" r="7.5" fill="#1f7fe0" stroke="#fff" stroke-width="3.2"/></svg></div>`
+      <circle cx="15" cy="15" r="14" fill="${ACCENT}" fill-opacity="0.18"/>
+      <circle cx="15" cy="15" r="7.5" fill="${ACCENT}" stroke="#fff" stroke-width="3.2"/></svg></div>`
   });
 }
 function dropSvg(w, h, color, inner) {
@@ -312,17 +339,17 @@ function fountainIcon(f) {
   const off = !isOperative(f);
   let color, inner;
   if (isFav(f)) { color = off ? '#7fb6c0' : '#00bcd4'; inner = HEART_INNER; }       // favorita: gota cian con corazón
-  else { color = off ? '#9aa7b6' : '#1f7fe0'; inner = isDog(f) ? pawInner(color) : DROP_PLAIN; }
+  else { color = off ? '#9aa7b6' : ACCENT; inner = isDog(f) ? pawInner(color) : DROP_PLAIN; }
   return L.divIcon({
     className: '', iconSize: [34, 42], iconAnchor: [17, 40], popupAnchor: [0, -38],
     html: `<div class="fountain-pin${off ? ' off' : ''}">${dropSvg(34, 42, color, inner)}</div>`
   });
 }
 function nearestIcon(f) {
-  const inner = isFav(f) ? HEART_INNER : (isDog(f) ? pawInner('#0a93e6') : DROP_PLAIN);   // la más cercana también muestra corazón si es favorita
+  const inner = isFav(f) ? HEART_INNER : (isDog(f) ? pawInner(ACCENT) : DROP_PLAIN);   // la seleccionada también muestra corazón si es favorita
   return L.divIcon({
     className: '', iconSize: [46, 57], iconAnchor: [23, 53], popupAnchor: [0, -50],
-    html: `<div class="fountain-pin nearest-pin">${dropSvg(46, 57, '#19b3ff', inner)}</div>`
+    html: `<div class="fountain-pin nearest-pin">${dropSvg(46, 57, ACCENT_L, inner)}</div>`
   });
 }
 
@@ -454,10 +481,39 @@ function updateModeButton() {
 function updateFitBtn() {
   const b = $('fitBtn'); if (b) b.style.display = selected ? 'flex' : 'none';
 }
+function fitZoom() {
+  const dist = haversine(userPos.lat, userPos.lon, selected.lat, selected.lon);
+  const h = (map.getSize && map.getSize().y) || 500;
+  const mpp = Math.max(dist, 40) / (h * 0.58);     // la distancia ocupa ~0.58 de la altura
+  const z = Math.log2(156543.03 * Math.cos(toRad(userPos.lat)) / mpp);
+  return Math.max(13, Math.min(18, z));
+}
 function fitUserAndFountain() {
   if (!userPos || !selected || !map) return;
-  const bounds = L.latLngBounds([userPos.lat, userPos.lon], [selected.lat, selected.lon]);
-  map.fitBounds(bounds, { paddingTopLeft: [55, 75], paddingBottomRight: [55, 95], maxZoom: 18 });
+  const z = fitZoom();
+  // 1) me centro y fijo el zoom (quedo en el centro de la pantalla)
+  map.setView([userPos.lat, userPos.lon], z, { animate: false });
+  // 2) roto UNA vez para poner la fuente arriba: mido el ángulo en pantalla y giro lo justo
+  if (map.setBearing && map.getBearing) {
+    const ang = () => {
+      const u = map.latLngToContainerPoint([userPos.lat, userPos.lon]);
+      const f = map.latLngToContainerPoint([selected.lat, selected.lon]);
+      return Math.atan2(f.y - u.y, f.x - u.x) * 180 / Math.PI;
+    };
+    const a0 = ang(), b0 = map.getBearing();
+    map.setBearing(b0 + 20); let d = ang() - a0; map.setBearing(b0);   // detecta el sentido de giro
+    d = ((d + 540) % 360) - 180; const k = d >= 0 ? 1 : -1;
+    programmaticBearing = true;
+    let err = -90 - ang(); err = ((err + 540) % 360) - 180;            // -90 = arriba
+    map.setBearing(map.getBearing() + err / k);
+    setTimeout(() => { programmaticBearing = false; }, 150);
+    mapMode = 'free';
+  }
+  // 3) bajo la vista: quedo abajo-centro y la fuente sube, quedando arriba-centro
+  const size = map.getSize();
+  const newCenter = map.containerPointToLatLng([size.x / 2, size.y * 0.20]);
+  map.setView(newCenter, z, { animate: false });
+  updateModeButton();
 }
 
 /* ============================================================
@@ -694,6 +750,9 @@ $('setTheme').querySelectorAll('button').forEach(b => b.addEventListener('click'
 }));
 $('setMap').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
   settings.map = b.dataset.map; saveSettings(); applyMapTheme(); syncSettingsUI();
+}));
+$('setAccent').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+  settings.accent = b.dataset.accent; saveSettings(); applyAccent(); syncSettingsUI();
 }));
 $('exportBtn').addEventListener('click', exportData);
 $('importBtn').addEventListener('click', () => $('importFile').click());
