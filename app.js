@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.7.4';
+const APP_VERSION = '1.7.6';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
@@ -332,7 +332,7 @@ function setTarget(f) {
   if (prev && prev !== f && prev.marker) { prev.marker.setIcon(fountainIcon(prev)); prev.marker.setZIndexOffset(0); }
   renderMarkers();
   if (f && f.marker) { f.marker.setIcon(nearestIcon(f)); f.marker.setZIndexOffset(700); }
-  if (mapMode === 'target') updateTargetView(true);
+  if (mapMode === 'target') targetTick();
 }
 function restoreTarget() {
   let key = null;
@@ -371,15 +371,15 @@ function setBearingSafe(deg) {
   setTimeout(() => { programmaticBearing = false; }, 60);
 }
 function setMode(m) {
-  if (m === 'target' && !selected) { toast('Toca una fuente para fijarla como destino'); mapMode = 'north'; setBearingSafe(0); updateModeButton(); return; }
+  if (m === 'target' && !selected) { toast('Toca una fuente para fijarla como destino'); mapMode = 'north'; stopTargetLoop(); setBearingSafe(0); updateModeButton(); return; }
   mapMode = m;
-  if (m === 'north') { setBearingSafe(0); bearingSmoothed = null; toast('Norte arriba'); }
-  else if (m === 'target') { bearingSmoothed = null; updateTargetView(true); toast('Fuente arriba'); }
+  if (m === 'target') { smoothPos = null; bearingSmoothed = null; startTargetLoop(); targetTick(); toast('Fuente arriba'); }
+  else { stopTargetLoop(); setBearingSafe(0); bearingSmoothed = null; toast('Norte arriba'); }
   updateModeButton();
 }
 function onModeButton() { setMode(mapMode === 'target' ? 'north' : 'target'); }
 function onMapRotate() {
-  if (!programmaticBearing && mapMode !== 'manual') { mapMode = 'manual'; toast('Mapa girado a mano'); }
+  if (!programmaticBearing && mapMode !== 'manual') { mapMode = 'manual'; stopTargetLoop(); toast('Mapa girado a mano'); }
   updateModeButton();
 }
 function updateModeButton() {
@@ -390,46 +390,78 @@ function updateModeButton() {
   btn.classList.toggle('active', mapMode === 'target');
 }
 
-/* MODO "FUENTE ARRIBA": la fuente seleccionada arriba, tú abajo, encuadrado y siguiéndote.
-   El mapa rota según el rumbo hacia la fuente y se centra en el punto medio. */
-function targetZoom() {
-  if (!userPos || !selected || !map) return 16;
-  const dist = haversine(userPos.lat, userPos.lon, selected.lat, selected.lon);
-  const h = (map.getSize && map.getSize().y) || 500;
-  const mpp = Math.max(dist, 40) / (h * 0.34);                       // metros/píxel para que quepan ambos
-  const lat = (userPos.lat + selected.lat) / 2;
-  const z = Math.log2(156543.03 * Math.cos(toRad(lat)) / mpp);
-  return Math.max(13, Math.min(18, z));
-}
-function targetMid() { return [(userPos.lat + selected.lat) / 2, (userPos.lon + selected.lon) / 2]; }
+/* ============================================================
+   MODO "FUENTE ARRIBA": la fuente arriba-centro, tú abajo-centro,
+   alineados. Con suavizado: filtra el temblor del GPS y del giro,
+   y no reencuadra por cada GPS sino a intervalos (vamos andando).
+   ============================================================ */
+const SMOOTH_POS = 0.22;     // suavizado de tu posición (0 = congela, 1 = instantáneo)
+const SMOOTH_BEAR = 0.16;    // suavizado del giro del mapa
+let smoothPos = null;        // tu posición filtrada
+let targetTimer = null;      // bucle de seguimiento
 let _bearingTimer = null;
-function applyBearing() {                    // fija el giro y lo re-aplica tras el reset asíncrono de setView
-  if (mapMode !== 'target' || !map || !map.setBearing) return;
-  programmaticBearing = true;
-  map.setBearing(BEARING_SIGN * bearingSmoothed);
-  clearTimeout(_bearingTimer);
-  _bearingTimer = setTimeout(() => { programmaticBearing = false; }, 160);
+
+function targetZoom() {
+  const p = smoothPos || userPos;
+  if (!p || !selected || !map) return 16;
+  const dist = haversine(p.lat, p.lon, selected.lat, selected.lon);
+  const h = (map.getSize && map.getSize().y) || 500;
+  const mpp = Math.max(dist, 35) / (h * 0.58);     // la distancia ocupa ~0.58 de la altura
+  const z = Math.log2(156543.03 * Math.cos(toRad(p.lat)) / mpp);
+  return Math.max(13, Math.min(18.5, z));
 }
-function frameTarget() {
-  if (mapMode !== 'target' || !userPos || !map) return;
-  // PASO 1: dejar MI UBICACIÓN abajo-centro, esté el mapa girado o no.
-  // Trabajo en coordenadas de PANTALLA (containerPoint), que SÍ tienen en cuenta la rotación.
+
+/* ángulo (grados) del vector "yo → fuente" en PANTALLA. Arriba = -90 */
+function screenAngleToFountain() {
+  const uP = map.latLngToContainerPoint([smoothPos.lat, smoothPos.lon]);
+  const fP = map.latLngToContainerPoint([selected.lat, selected.lon]);
+  return Math.atan2(fP.y - uP.y, fP.x - uP.x) * 180 / Math.PI;
+}
+/* detecta UNA vez el sentido de giro: cuántos grados-pantalla por grado de setBearing (±1) */
+let _kSign = 0;
+function detectKSign() {
+  if (!map.setBearing || !map.getBearing) return;
+  const a0 = screenAngleToFountain();
+  const b0 = map.getBearing();
+  map.setBearing(b0 + 20);
+  let d = screenAngleToFountain() - a0;
+  map.setBearing(b0);
+  d = ((d + 540) % 360) - 180;
+  _kSign = d >= 0 ? 1 : -1;
+}
+/* fotograma del modo "fuente arriba" — rotación medida en pantalla (exacta) */
+function frameTargetRotated() {
+  if (!smoothPos || !selected || !map) return;
   const z = targetZoom();
-  map.setView([userPos.lat, userPos.lon], z, { animate: false });               // 1) me centra
+  // 1) me centro y fijo el zoom (quedo en el centro de la pantalla)
+  map.setView([smoothPos.lat, smoothPos.lon], z, { animate: false });
+  // 2) roto alrededor del centro (= yo) hasta que la fuente quede JUSTO arriba (-90° en pantalla)
+  if (map.setBearing && map.getBearing) {
+    if (!_kSign) detectKSign();
+    if (_kSign) {
+      programmaticBearing = true;
+      let err = -90 - screenAngleToFountain();
+      err = ((err + 540) % 360) - 180;
+      map.setBearing(map.getBearing() + err / _kSign);
+      clearTimeout(_bearingTimer);
+      _bearingTimer = setTimeout(() => { programmaticBearing = false; }, 240);
+    }
+  }
+  // 3) bajo la vista: quedo abajo-centro y la fuente sube conmigo, alineada justo encima
   const size = map.getSize();
-  const newCenter = map.containerPointToLatLng([size.x / 2, size.y * 0.18]);     // 2) subo el centro 0.32 de la altura
-  map.setView(newCenter, z, { animate: false });                                 //    → quedo a ~82% (abajo-centro)
+  const newCenter = map.containerPointToLatLng([size.x / 2, size.y * 0.18]);
+  map.setView(newCenter, z, { animate: false });
 }
-function updateTargetView() {               // reencuadre (al entrar o cambiar de fuente)
+
+/* un paso del bucle: suaviza posición y giro, y reencuadra */
+function targetTick() {
   if (mapMode !== 'target' || !selected || !userPos || !map) return;
-  bearingSmoothed = smoothAngle(bearingSmoothed, bearing(userPos.lat, userPos.lon, selected.lat, selected.lon), 0.6);
-  frameTarget();
+  if (!smoothPos) smoothPos = { lat: userPos.lat, lon: userPos.lon };
+  else { smoothPos.lat += SMOOTH_POS * (userPos.lat - smoothPos.lat); smoothPos.lon += SMOOTH_POS * (userPos.lon - smoothPos.lon); }
+  frameTargetRotated();
 }
-function followTarget() {                    // seguimiento al moverte (reencuadra y rota)
-  if (mapMode !== 'target' || !selected || !userPos || !map) return;
-  bearingSmoothed = smoothAngle(bearingSmoothed, bearing(userPos.lat, userPos.lon, selected.lat, selected.lon), 0.25);
-  frameTarget();
-}
+function startTargetLoop() { if (!targetTimer) targetTimer = setInterval(targetTick, 220); }
+function stopTargetLoop() { if (targetTimer) { clearInterval(targetTimer); targetTimer = null; } smoothPos = null; }
 
 /* ============================================================
    LIVE position tracking
@@ -442,7 +474,6 @@ function watchPosition() {
       if (userMarker) userMarker.setLatLng([userPos.lat, userPos.lon]);
       if (accCircle) { accCircle.setLatLng([userPos.lat, userPos.lon]); accCircle.setRadius(userPos.acc || 30); }
       recomputeDistances();
-      if (mapMode === 'target') followTarget();
       if (selected && $('sheet').classList.contains('open')) updateSheetDistance();
       if ($('ar').style.display === 'block') updateAR();
     },
