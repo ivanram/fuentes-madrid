@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.7.1';
+const APP_VERSION = '1.7.2';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
@@ -402,17 +402,30 @@ function targetZoom() {
   return Math.max(13, Math.min(18, z));
 }
 function targetMid() { return [(userPos.lat + selected.lat) / 2, (userPos.lon + selected.lon) / 2]; }
+let _bearingTimer = null;
+function applyBearing() {                    // fija el giro y lo re-aplica tras el reset asíncrono de setView
+  if (mapMode !== 'target' || !map || !map.setBearing) return;
+  programmaticBearing = true;
+  map.setBearing(BEARING_SIGN * bearingSmoothed);
+  clearTimeout(_bearingTimer);
+  _bearingTimer = setTimeout(() => { programmaticBearing = false; }, 160);
+}
+function frameTarget() {
+  if (mapMode !== 'target' || !selected || !userPos || !map) return;
+  // pasamos el rumbo DENTRO de setView (forma canónica) y además lo re-aplicamos por si el reset es asíncrono
+  map.setView(targetMid(), targetZoom(), { animate: false, bearing: BEARING_SIGN * bearingSmoothed });
+  applyBearing();
+  setTimeout(applyBearing, 60);
+}
 function updateTargetView() {               // reencuadre (al entrar o cambiar de fuente)
   if (mapMode !== 'target' || !selected || !userPos || !map) return;
   bearingSmoothed = smoothAngle(bearingSmoothed, bearing(userPos.lat, userPos.lon, selected.lat, selected.lon), 0.6);
-  map.setView(targetMid(), targetZoom(), { animate: false });
-  setBearingSafe(BEARING_SIGN * bearingSmoothed);   // ⬅️ rotar AL FINAL: setView resetea el giro
+  frameTarget();
 }
 function followTarget() {                    // seguimiento al moverte (reencuadra y rota)
   if (mapMode !== 'target' || !selected || !userPos || !map) return;
   bearingSmoothed = smoothAngle(bearingSmoothed, bearing(userPos.lat, userPos.lon, selected.lat, selected.lon), 0.25);
-  map.setView(targetMid(), targetZoom(), { animate: false });
-  setBearingSafe(BEARING_SIGN * bearingSmoothed);   // rotar al final
+  frameTarget();
 }
 
 /* ============================================================
