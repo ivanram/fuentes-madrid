@@ -264,6 +264,8 @@ header.bar .t:active{opacity:.6}
 #recenter{bottom:92px}
 #recenter svg{stroke:var(--blue-d);fill:none}
 #mapMode{bottom:150px}
+#fitBtn{bottom:208px}
+#fitBtn svg{width:26px;height:26px}
 #mapMode .needle{transition:transform .25s ease-out}
 #mapMode.active{background:var(--blue)}
 #mapMode.active .needle polygon:last-child{fill:#bfe0ff}
