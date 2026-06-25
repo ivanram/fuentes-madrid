@@ -5,8 +5,9 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.6';
+const APP_VERSION = '1.7';
 const FAV_KEY = 'fuentes_favs_v1';
+const TARGET_KEY = 'fuentes_target_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
 const MARKER_CAP = 350;          // máx. marcadores dibujados a la vez (rendimiento)
 const MIN_RADIUS = 70;           // m: evita sobre-acercar si la fuente está pegada
@@ -42,10 +43,9 @@ function toggleFav(f) {
 }
 
 /* rotación del mapa */
-let mapMode = 'north';           // north | manual | compass
+let mapMode = 'north';           // north | manual | target
 let programmaticBearing = false;
-let coursePos = null;            // ancla para calcular el rumbo
-let courseSmoothed = null;       // rumbo suavizado (deg)
+let bearingSmoothed = null;      // rumbo suavizado hacia la fuente (modo "fuente arriba")
 
 /* AR */
 let arHeading = null;            // brújula suavizada (deg)
@@ -289,17 +289,19 @@ function initMap() {
   map.on('moveend zoomend', debounce(renderMarkers, 90));
   map.on('rotate', onMapRotate);
   map.on('rotateend', updateModeButton);
+  map.on('click', () => { closeSheet(); $('filterSheet').classList.remove('open'); });   // tocar fuera cierra los paneles
 
   $('recenter').addEventListener('click', () => { if (userPos) map.setView([userPos.lat, userPos.lon], 16, { animate: true }); });
   $('mapMode').addEventListener('click', onModeButton);
 
+  restoreTarget();   // recupera la última fuente seleccionada (persistente)
   requestAnimationFrame(() => { map.invalidateSize(); fitInitialView(); renderMarkers(); updateModeButton(); });
 }
 
 /* ---------- marcadores: solo lo visible, con tope ---------- */
+function iconFor(f) { return f === selected ? nearestIcon(f) : fountainIcon(f); }   // nearestIcon = gota viva + parpadeo (ahora marca la seleccionada)
 function renderMarkers() {
   if (!map || !fountainLayer) return;
-  const near = nearest();
   const b = map.getBounds().pad(0.25);
   let inView = [];
   for (const f of fountains) if (b.contains([f.lat, f.lon])) inView.push(f);
@@ -308,26 +310,36 @@ function renderMarkers() {
     inView.sort((a, z) => map.distance(c, [a.lat, a.lon]) - map.distance(c, [z.lat, z.lon]));
     inView = inView.slice(0, MARKER_CAP);
   }
-  if (near && inView.indexOf(near) === -1) inView.push(near);   // la más cercana siempre visible
+  if (selected && fountains.indexOf(selected) !== -1 && inView.indexOf(selected) === -1) inView.push(selected); // la seleccionada siempre visible
   const need = new Set(inView);
   for (const f of Array.from(shown)) {
     if (!need.has(f)) { if (f.marker) fountainLayer.removeLayer(f.marker); f.marker = null; shown.delete(f); }
   }
   for (const f of inView) {
     if (!f.marker) {
-      f.marker = L.marker([f.lat, f.lon], { icon: fountainIcon(f) }).on('click', () => openSheet(f));
+      f.marker = L.marker([f.lat, f.lon], { icon: iconFor(f) }).on('click', () => openSheet(f));
+      if (f === selected) f.marker.setZIndexOffset(700);
       fountainLayer.addLayer(f.marker); shown.add(f);
     }
   }
-  applyNearestHighlight(near);
 }
-function applyNearestHighlight(near) {
-  if (renderedNearest && renderedNearest !== near && renderedNearest.marker) {
-    renderedNearest.marker.setIcon(fountainIcon(renderedNearest));
-    renderedNearest.marker.setZIndexOffset(0);
-  }
-  renderedNearest = near;
-  if (near && near.marker) { near.marker.setIcon(nearestIcon(near)); near.marker.setZIndexOffset(700); }
+
+/* fuente seleccionada = destino resaltado y persistente entre sesiones */
+function setTarget(f) {
+  const prev = selected;
+  selected = f;
+  try { localStorage.setItem(TARGET_KEY, f ? favKey(f) : ''); } catch (_) {}
+  if (prev && prev !== f && prev.marker) { prev.marker.setIcon(fountainIcon(prev)); prev.marker.setZIndexOffset(0); }
+  renderMarkers();
+  if (f && f.marker) { f.marker.setIcon(nearestIcon(f)); f.marker.setZIndexOffset(700); }
+  if (mapMode === 'target') updateTargetView(true);
+}
+function restoreTarget() {
+  let key = null;
+  try { key = localStorage.getItem(TARGET_KEY); } catch (_) {}
+  if (!key) return;
+  const f = allFountains.find((x) => favKey(x) === key);
+  if (f) selected = f;
 }
 
 function recomputeDistances() {
@@ -359,12 +371,13 @@ function setBearingSafe(deg) {
   setTimeout(() => { programmaticBearing = false; }, 60);
 }
 function setMode(m) {
+  if (m === 'target' && !selected) { toast('Toca una fuente para fijarla como destino'); mapMode = 'north'; setBearingSafe(0); updateModeButton(); return; }
   mapMode = m;
-  if (m === 'north') { setBearingSafe(0); coursePos = userPos ? { lat: userPos.lat, lon: userPos.lon } : null; courseSmoothed = null; toast('Norte arriba'); }
-  else if (m === 'compass') { if (courseSmoothed != null) setBearingSafe(BEARING_SIGN * courseSmoothed); toast('Modo brújula: tu avance, arriba'); }
+  if (m === 'north') { setBearingSafe(0); bearingSmoothed = null; toast('Norte arriba'); }
+  else if (m === 'target') { bearingSmoothed = null; updateTargetView(true); toast('Fuente arriba'); }
   updateModeButton();
 }
-function onModeButton() { setMode(mapMode === 'north' ? 'compass' : 'north'); }
+function onModeButton() { setMode(mapMode === 'target' ? 'north' : 'target'); }
 function onMapRotate() {
   if (!programmaticBearing && mapMode !== 'manual') { mapMode = 'manual'; toast('Mapa girado a mano'); }
   updateModeButton();
@@ -374,18 +387,32 @@ function updateModeButton() {
   const brg = (map && map.getBearing) ? map.getBearing() : 0;
   const needle = btn.querySelector('.needle');
   if (needle) needle.style.transform = `rotate(${-brg}deg)`;
-  btn.classList.toggle('active', mapMode === 'compass');
+  btn.classList.toggle('active', mapMode === 'target');
 }
 
-/* rumbo del modo brújula a partir del movimiento sobre el mapa (estable) */
-function updateCourse(lat, lon) {
-  if (!coursePos) { coursePos = { lat, lon }; return; }
-  const moved = haversine(coursePos.lat, coursePos.lon, lat, lon);
-  if (moved < COURSE_MIN_MOVE) return;
-  const c = bearing(coursePos.lat, coursePos.lon, lat, lon);
-  courseSmoothed = smoothAngle(courseSmoothed, c, COURSE_SMOOTH);
-  coursePos = { lat, lon };
-  if (mapMode === 'compass') setBearingSafe(BEARING_SIGN * courseSmoothed);
+/* MODO "FUENTE ARRIBA": la fuente seleccionada arriba, tú abajo, encuadrado y siguiéndote.
+   El mapa rota según el rumbo hacia la fuente y se centra en el punto medio. */
+function targetZoom() {
+  if (!userPos || !selected || !map) return 16;
+  const dist = haversine(userPos.lat, userPos.lon, selected.lat, selected.lon);
+  const h = (map.getSize && map.getSize().y) || 500;
+  const mpp = Math.max(dist, 40) / (h * 0.34);                       // metros/píxel para que quepan ambos
+  const lat = (userPos.lat + selected.lat) / 2;
+  const z = Math.log2(156543.03 * Math.cos(toRad(lat)) / mpp);
+  return Math.max(13, Math.min(18, z));
+}
+function targetMid() { return [(userPos.lat + selected.lat) / 2, (userPos.lon + selected.lon) / 2]; }
+function updateTargetView(animate) {        // reencuadre completo (al entrar o cambiar de fuente)
+  if (mapMode !== 'target' || !selected || !userPos || !map) return;
+  bearingSmoothed = smoothAngle(bearingSmoothed, bearing(userPos.lat, userPos.lon, selected.lat, selected.lon), 0.5);
+  setBearingSafe(BEARING_SIGN * bearingSmoothed);
+  map.setView(targetMid(), targetZoom(), { animate: animate, duration: 0.5 });
+}
+function followTarget() {                    // seguimiento suave al moverte
+  if (mapMode !== 'target' || !selected || !userPos || !map) return;
+  bearingSmoothed = smoothAngle(bearingSmoothed, bearing(userPos.lat, userPos.lon, selected.lat, selected.lon), 0.2);
+  setBearingSafe(BEARING_SIGN * bearingSmoothed);
+  map.panTo(targetMid(), { animate: true, duration: 0.5 });
 }
 
 /* ============================================================
@@ -398,10 +425,9 @@ function watchPosition() {
       userPos = posToObj(pos);
       if (userMarker) userMarker.setLatLng([userPos.lat, userPos.lon]);
       if (accCircle) { accCircle.setLatLng([userPos.lat, userPos.lon]); accCircle.setRadius(userPos.acc || 30); }
-      updateCourse(userPos.lat, userPos.lon);
       recomputeDistances();
-      if (nearest() !== renderedNearest) renderMarkers();
-      if (selected) updateSheetDistance();
+      if (mapMode === 'target') followTarget();
+      if (selected && $('sheet').classList.contains('open')) updateSheetDistance();
       if ($('ar').style.display === 'block') updateAR();
     },
     () => {}, { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
@@ -424,7 +450,7 @@ function usoLabel(u) {
   return ['MIXTO', 'Uso no especificado'];
 }
 function openSheet(f) {
-  selected = f;
+  setTarget(f);
   const p = f.props;
   const addr = [p.DIRECCION, p.DIRECCION_AUX].filter(Boolean).join(' · ');
   $('sName').textContent = p.BARRIO ? `Fuente · ${p.BARRIO}` : 'Fuente de agua';
@@ -454,13 +480,34 @@ function pinSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="current
 function checkSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'; }
 function crossSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>'; }
 
-$('sheetClose').addEventListener('click', () => { $('sheet').classList.remove('open'); selected = null; });
+function closeSheet() { $('sheet').classList.remove('open'); }   // mantiene la selección (el resaltado persiste)
+$('sheetClose').addEventListener('click', closeSheet);
+
+/* arrastrar la ficha hacia abajo para cerrarla (y de paso bloquea el pull-to-refresh) */
+(function enableSheetDrag() {
+  const el = $('sheet'); let startY = null, dy = 0;
+  el.addEventListener('touchstart', (e) => {
+    if (e.target.closest('button') || e.target.closest('a')) return;
+    startY = e.touches[0].clientY; dy = 0; el.style.transition = 'none';
+  }, { passive: true });
+  el.addEventListener('touchmove', (e) => {
+    if (startY == null) return;
+    dy = e.touches[0].clientY - startY;
+    if (dy > 0) { el.style.transform = `translateY(${dy}px)`; e.preventDefault(); }
+  }, { passive: false });
+  el.addEventListener('touchend', () => {
+    if (startY == null) return;
+    el.style.transition = ''; el.style.transform = '';
+    if (dy > 90) closeSheet();
+    startY = null; dy = 0;
+  });
+})();
 
 $('favBtn').addEventListener('click', () => {
   if (!selected) return;
   toggleFav(selected);
   updateFavBtn();
-  if (selected.marker) selected.marker.setIcon(renderedNearest === selected ? nearestIcon(selected) : fountainIcon(selected));
+  if (selected.marker) selected.marker.setIcon(nearestIcon(selected));   // sigue siendo la seleccionada (resaltada) + corazón
   if (filters.favOnly) { applyFilters(); renderMarkers(); }
 });
 
