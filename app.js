@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '1.9.0';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
@@ -38,6 +38,73 @@ function toggleFav(f) {
   saveFavs();
   return favs.has(k);
 }
+
+/* ============================================================
+   AJUSTES (tema, tema de mapa, import/export) — persistentes
+   ============================================================ */
+const SETTINGS_KEY = 'fuentes_settings_v1';
+let settings = { theme: 'system', map: 'voyager' };
+try { settings = Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch (_) {}
+function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (_) {} }
+
+const ATTRIB = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OSM</a> &middot; ' +
+               '<a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a> &middot; ' +
+               '<a href="' + INFO_URL + '" target="_blank" rel="noopener">Ayto. de Madrid</a>';
+const MAP_TILES = {
+  voyager:  { url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', sub: 'abcd' },
+  osm:      { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', sub: 'abc' },
+  positron: { url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', sub: 'abcd' },
+  dark:     { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', sub: 'abcd' }
+};
+let tileLayer = null;
+
+function applyTheme() {
+  const t = settings.theme;
+  const dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', dark ? '#0f1620' : '#1f7fe0');
+}
+function applyMapTheme() {
+  if (!map) return;
+  const t = MAP_TILES[settings.map] || MAP_TILES.voyager;
+  if (tileLayer) map.removeLayer(tileLayer);
+  tileLayer = L.tileLayer(t.url, { attribution: ATTRIB, subdomains: t.sub, maxZoom: 20, detectRetina: true });
+  tileLayer.addTo(map); tileLayer.setZIndex(0);
+}
+/* refresca el tema del sistema en vivo si está en modo "sistema" */
+try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (settings.theme === 'system') applyTheme(); }); } catch (_) {}
+
+function exportData() {
+  const data = { v: 1, favs: [...favs], settings: settings, target: (function () { try { return localStorage.getItem(TARGET_KEY) || ''; } catch (_) { return ''; } })() };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'fuentes-madrid-config.json'; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  toast('Configuración exportada');
+}
+function importData(file) {
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if (Array.isArray(d.favs)) { favs = new Set(d.favs); saveFavs(); }
+      if (d.settings && typeof d.settings === 'object') { settings = Object.assign(settings, d.settings); saveSettings(); applyTheme(); applyMapTheme(); }
+      if (typeof d.target === 'string') { try { localStorage.setItem(TARGET_KEY, d.target); } catch (_) {} }
+      if (map) { for (const f of shown) if (f.marker) f.marker.setIcon(f === selected ? nearestIcon(f) : fountainIcon(f)); applyFilters(); renderMarkers(); }
+      syncSettingsUI();
+      toast('Configuración importada ✓');
+    } catch (e) { toast('Ese archivo no es válido'); }
+  };
+  r.readAsText(file);
+}
+function syncSettingsUI() {
+  const st = $('setTheme'), sm = $('setMap');
+  if (st) st.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.theme === settings.theme));
+  if (sm) sm.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.map === settings.map));
+}
+
+applyTheme();   // aplica el tema cuanto antes (evita parpadeo)
 
 /* orientación del mapa */
 let mapMode = 'north';           // north | free
@@ -265,12 +332,7 @@ function initMap() {
     rotate: true, touchRotate: true, shiftKeyRotate: true, rotateControl: false, bearing: 0
   }).setView([userPos.lat, userPos.lon], 16);
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OSM</a> &middot; ' +
-                 '<a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a> &middot; ' +
-                 '<a href="' + INFO_URL + '" target="_blank" rel="noopener">Ayto. de Madrid</a>',
-    subdomains: 'abcd', maxZoom: 20, detectRetina: true
-  }).addTo(map);
+  applyMapTheme();   // capa de teselas según el tema de mapa elegido en ajustes
   if (map.attributionControl) map.attributionControl.setPrefix(false);
 
   userMarker = L.marker([userPos.lat, userPos.lon], { icon: userIcon(), zIndexOffset: 1000 })
@@ -286,8 +348,6 @@ function initMap() {
   map.on('rotate', onMapRotate);
   map.on('rotateend', updateModeButton);
   map.on('click', () => { closeSheet(); $('filterSheet').classList.remove('open'); });   // tocar fuera cierra los paneles
-
-  if (map.touchRotate && map.touchRotate.disable) map.touchRotate.disable();   // arranca en Norte (giro bloqueado)
 
   $('recenter').addEventListener('click', () => { if (userPos) map.setView([userPos.lat, userPos.lon], 16, { animate: true }); });
   $('mapMode').addEventListener('click', onModeButton);
@@ -371,27 +431,19 @@ function setBearingSafe(deg) {
 }
 function setMode(m) {
   mapMode = m;
-  if (m === 'north') {
-    setBearingSafe(0);
-    if (map.touchRotate && map.touchRotate.disable) map.touchRotate.disable();   // bloquea el giro
-    toast('Norte arriba');
-  } else {                                                                        // libre
-    if (map.touchRotate && map.touchRotate.enable) map.touchRotate.enable();
-    toast('Modo libre: gira el mapa con dos dedos');
-  }
+  if (m === 'north') { setBearingSafe(0); toast('Norte arriba'); }
   updateModeButton();
 }
-function onModeButton() { setMode(mapMode === 'north' ? 'free' : 'north'); }
+function onModeButton() { setMode('north'); }   // el botón SOLO activa Norte arriba (si ya lo está, no hace nada visible)
 function onMapRotate() {
-  if (!programmaticBearing && mapMode !== 'free') mapMode = 'free';
+  if (!programmaticBearing && mapMode !== 'free') { mapMode = 'free'; toast('Modo libre'); }   // girar a mano = modo libre
   updateModeButton();
 }
 function updateModeButton() {
   const btn = $('mapMode'); if (!btn) return;
   const brg = (map && map.getBearing) ? map.getBearing() : 0;
   const needle = btn.querySelector('.needle');
-  if (needle) needle.style.transform = `rotate(${-brg}deg)`;
-  btn.classList.toggle('active', mapMode === 'free');
+  if (needle) needle.style.transform = `rotate(${-brg}deg)`;   // la aguja indica la orientación; el botón nunca se resalta
 }
 
 /* ============================================================
@@ -633,6 +685,19 @@ $('fUso').querySelectorAll('button').forEach(b => b.addEventListener('click', ()
   $('fUso').querySelectorAll('button').forEach(x => x.classList.remove('active'));
   b.classList.add('active'); onFilterChange();
 }));
+
+/* ---- Ajustes ---- */
+$('settingsBtn').addEventListener('click', () => { syncSettingsUI(); $('settings').classList.add('open'); });
+$('settingsClose').addEventListener('click', () => $('settings').classList.remove('open'));
+$('setTheme').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+  settings.theme = b.dataset.theme; saveSettings(); applyTheme(); syncSettingsUI();
+}));
+$('setMap').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+  settings.map = b.dataset.map; saveSettings(); applyMapTheme(); syncSettingsUI();
+}));
+$('exportBtn').addEventListener('click', exportData);
+$('importBtn').addEventListener('click', () => $('importFile').click());
+$('importFile').addEventListener('change', (e) => { if (e.target.files[0]) importData(e.target.files[0]); e.target.value = ''; });
 
 window.addEventListener('orientationchange', () => { if (map) setTimeout(() => map.invalidateSize(), 300); });
 

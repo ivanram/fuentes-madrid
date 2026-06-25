@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="icon-192.png?v=1.5">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer">
-  <link rel="stylesheet" href="styles.css?v=1.8.0">
+  <link rel="stylesheet" href="styles.css?v=1.9.0">
 </head>
 <body>
 
@@ -37,7 +37,7 @@
       Permitir ubicación
     </button>
     <p class="err" id="splashErr"></p>
-    <p class="version" id="appVersion">v1.8.0</p>
+    <p class="version" id="appVersion">v1.9.0</p>
   </section>
 
   <!-- ============ APP ============ -->
@@ -48,6 +48,9 @@
       <button class="count" id="count" title="Filtrar fuentes" aria-label="Filtrar fuentes">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
         <span id="countN">—</span>
+      </button>
+      <button class="iconbtn" id="settingsBtn" title="Ajustes" aria-label="Ajustes">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
     </header>
 
@@ -129,7 +132,41 @@
     <p class="desc privacy">La ubicación sólo se usa para ajustar el mapa y no se transmite ni guarda en ningún sitio.</p>
     <p class="desc privacy">La configuración de fuentes favoritas se guarda de forma local en tu navegador.</p>
     <p class="updated"><span class="dot"></span><span id="updatedText">—</span></p>
-    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.8.0</span></button>
+    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.9.0</span></button>
+  </div>
+
+  <!-- ============ AJUSTES ============ -->
+  <div id="settings">
+    <button class="close" id="settingsClose" aria-label="Cerrar">×</button>
+    <h1 class="set-title">Ajustes</h1>
+    <div class="set-scroll">
+      <div class="fgroup">
+        <div class="flabel">Tema</div>
+        <div class="segment" id="setTheme">
+          <button data-theme="light">Claro</button>
+          <button data-theme="dark">Oscuro</button>
+          <button data-theme="system" class="active">Sistema</button>
+        </div>
+      </div>
+      <div class="fgroup">
+        <div class="flabel">Mapa</div>
+        <div class="segment grid2" id="setMap">
+          <button data-map="voyager" class="active">Moderno</button>
+          <button data-map="osm">Clásico</button>
+          <button data-map="positron">Claro</button>
+          <button data-map="dark">Oscuro</button>
+        </div>
+      </div>
+      <div class="fgroup">
+        <div class="flabel">Datos · favoritas y ajustes</div>
+        <div class="set-row">
+          <button class="btn ghost" id="exportBtn">Exportar</button>
+          <button class="btn ghost" id="importBtn">Importar</button>
+          <input type="file" id="importFile" accept="application/json,.json" hidden>
+        </div>
+        <p class="set-hint">Para llevar tu configuración a otro móvil o navegador.</p>
+      </div>
+    </div>
   </div>
 
   <!-- ============ AR OVERLAY ============ -->
@@ -159,6 +196,6 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js" referrerpolicy="no-referrer"></script>
-  <script src="app.js?v=1.8.0"></script>
+  <script src="app.js?v=1.9.0"></script>
 </body>
 </html>
