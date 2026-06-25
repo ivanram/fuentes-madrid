@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.7.2';
+const APP_VERSION = '1.7.3';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
@@ -411,11 +411,14 @@ function applyBearing() {                    // fija el giro y lo re-aplica tras
   _bearingTimer = setTimeout(() => { programmaticBearing = false; }, 160);
 }
 function frameTarget() {
-  if (mapMode !== 'target' || !selected || !userPos || !map) return;
-  // pasamos el rumbo DENTRO de setView (forma canónica) y además lo re-aplicamos por si el reset es asíncrono
-  map.setView(targetMid(), targetZoom(), { animate: false, bearing: BEARING_SIGN * bearingSmoothed });
-  applyBearing();
-  setTimeout(applyBearing, 60);
+  if (mapMode !== 'target' || !userPos || !map) return;
+  // PASO 1 (sin rotación): coloco MI UBICACIÓN centrada en la franja inferior.
+  // Centro el mapa en un punto situado por encima de mí, así mi punto cae abajo-centro.
+  const z = targetZoom();
+  const size = map.getSize();
+  const userPt = map.project([userPos.lat, userPos.lon], z);
+  const center = map.unproject(userPt.subtract([0, size.y * 0.34]), z);   // 0.34 → quedo ~84% hacia abajo
+  map.setView(center, z, { animate: false });
 }
 function updateTargetView() {               // reencuadre (al entrar o cambiar de fuente)
   if (mapMode !== 'target' || !selected || !userPos || !map) return;
