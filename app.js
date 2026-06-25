@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.7';
+const APP_VERSION = '1.7.1';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
@@ -265,7 +265,7 @@ function nearestIcon(f) {
 
 function initMap() {
   map = L.map('map', {
-    zoomControl: true, attributionControl: true, preferCanvas: true,
+    zoomControl: true, attributionControl: true,
     rotate: true, touchRotate: true, shiftKeyRotate: true, rotateControl: false, bearing: 0
   }).setView([userPos.lat, userPos.lon], 16);
 
@@ -402,17 +402,17 @@ function targetZoom() {
   return Math.max(13, Math.min(18, z));
 }
 function targetMid() { return [(userPos.lat + selected.lat) / 2, (userPos.lon + selected.lon) / 2]; }
-function updateTargetView(animate) {        // reencuadre completo (al entrar o cambiar de fuente)
+function updateTargetView() {               // reencuadre (al entrar o cambiar de fuente)
   if (mapMode !== 'target' || !selected || !userPos || !map) return;
-  bearingSmoothed = smoothAngle(bearingSmoothed, bearing(userPos.lat, userPos.lon, selected.lat, selected.lon), 0.5);
-  setBearingSafe(BEARING_SIGN * bearingSmoothed);
-  map.setView(targetMid(), targetZoom(), { animate: animate, duration: 0.5 });
+  bearingSmoothed = smoothAngle(bearingSmoothed, bearing(userPos.lat, userPos.lon, selected.lat, selected.lon), 0.6);
+  map.setView(targetMid(), targetZoom(), { animate: false });
+  setBearingSafe(BEARING_SIGN * bearingSmoothed);   // ⬅️ rotar AL FINAL: setView resetea el giro
 }
-function followTarget() {                    // seguimiento suave al moverte
+function followTarget() {                    // seguimiento al moverte (reencuadra y rota)
   if (mapMode !== 'target' || !selected || !userPos || !map) return;
-  bearingSmoothed = smoothAngle(bearingSmoothed, bearing(userPos.lat, userPos.lon, selected.lat, selected.lon), 0.2);
-  setBearingSafe(BEARING_SIGN * bearingSmoothed);
-  map.panTo(targetMid(), { animate: true, duration: 0.5 });
+  bearingSmoothed = smoothAngle(bearingSmoothed, bearing(userPos.lat, userPos.lon, selected.lat, selected.lon), 0.25);
+  map.setView(targetMid(), targetZoom(), { animate: false });
+  setBearingSafe(BEARING_SIGN * bearingSmoothed);   // rotar al final
 }
 
 /* ============================================================

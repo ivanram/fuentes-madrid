@@ -284,7 +284,7 @@ header.bar .t:active{opacity:.6}
 #about h1{margin:18px 0 4px;font-size:1.5rem;letter-spacing:-.02em}
 #about .tag{color:var(--blue-d);font-weight:600;margin:0 0 16px}
 #about .desc{color:var(--muted);max-width:350px;line-height:1.5;margin:0 0 14px}
-#about .desc a{color:var(--blue-d);font-weight:600;text-decoration:none;border-bottom:1.5px solid rgba(31,127,224,.3)}
+#about .desc a{color:var(--blue-d);font-weight:400;text-decoration:none;border-bottom:1.5px solid rgba(31,127,224,.3)}
 #about .updated{margin-top:8px;font-size:.84rem;color:var(--muted);display:flex;gap:7px;align-items:center}
 #about .updated .dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
 #about .version{margin-top:12px;font-size:.78rem;color:#9aa7b6;letter-spacing:.04em}
