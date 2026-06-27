@@ -10,34 +10,34 @@
   <link rel="apple-touch-icon" href="icon-192.png?v=1.5">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer">
-  <link rel="stylesheet" href="styles.css?v=1.10.1">
+  <link rel="stylesheet" href="styles.css?v=1.11.0">
 </head>
 <body>
 
   <!-- ============ LOADING (arranque silencioso) ============ -->
   <section id="loading">
     <img class="logo" src="icon-192.png?v=1.5" alt="">
-    <div class="load-row"><span class="spin"></span><span>Cargando fuentes…</span></div>
+    <div class="load-row"><span class="spin"></span><span data-i18n="loading_text">Cargando fuentes…</span></div>
   </section>
 
   <!-- ============ SPLASH (solo si falta permiso) ============ -->
   <section id="splash">
     <img class="logo" src="icon-192.png?v=1.5" alt="Icono de una fuente">
     <h1>Fuentes de Madrid</h1>
-    <p class="tag">¿Dónde está la fuente más cercana?</p>
-    <p class="desc">
+    <p class="tag" data-i18n="splash_tag">¿Dónde está la fuente más cercana?</p>
+    <p class="desc" data-i18n="splash_desc">
       Encuentra la fuente pública de agua potable más cercana, según los
       <a href="https://datos.madrid.es/dataset/300051-0-fuentes" target="_blank" rel="noopener">datos oficiales del Ayuntamiento</a>.
     </p>
-    <p class="desc privacy">
+    <p class="desc privacy" data-i18n="privacy1">
       La ubicación se usa únicamente para ajustar el mapa y no se guarda de ningún modo: se usa solo en tu móvil.
     </p>
     <button id="askLocation" class="btn">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
-      Permitir ubicación
+      <span data-i18n="btn_allow">Permitir ubicación</span>
     </button>
     <p class="err" id="splashErr"></p>
-    <p class="version" id="appVersion">v1.10.1</p>
+    <p class="version" id="appVersion">v1.11.0</p>
   </section>
 
   <!-- ============ APP ============ -->
@@ -66,7 +66,7 @@
       <svg viewBox="0 0 24 24"><path d="M12 2.5 C12 2.5 4.5 11 4.5 16 a7.5 7.5 0 0 0 15 0 C19.5 11 12 2.5 12 2.5 Z" fill="#1f7fe0"/></svg>
     </button>
 
-    <footer class="bar">Creado por Ivan con <span class="heart">❤️</span> y mucha IA</footer>
+    <footer class="bar" data-i18n="footer">Creado por Ivan con <span class="heart">❤️</span> y mucha IA</footer>
   </div>
 
   <!-- ============ INFO SHEET ============ -->
@@ -82,11 +82,11 @@
     <div class="actions">
       <button class="btn" id="btnRoute">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M6 17V9a4 4 0 0 1 4-4h4"/></svg>
-        Ruta andando
+        <span data-i18n="route">Ruta andando</span>
       </button>
       <button class="btn ghost" id="btnAR">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1668bd" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>
-        Ver con AR
+        <span data-i18n="ar_view">Ver con AR</span>
       </button>
     </div>
   </div>
@@ -95,29 +95,29 @@
   <div id="filterSheet" role="dialog" aria-modal="true" aria-label="Filtrar fuentes">
     <div class="grip"></div>
     <button class="close" id="filterClose" aria-label="Cerrar">×</button>
-    <h2 class="name">Filtrar fuentes</h2>
+    <h2 class="name" data-i18n="filter_h">Filtrar fuentes</h2>
     <div class="fgroup">
-      <div class="flabel">Estado</div>
+      <div class="flabel" data-i18n="f_estado">Estado</div>
       <label class="switch">
         <input type="checkbox" id="fOper" checked>
         <span class="track"><span class="knob"></span></span>
-        <span class="stext">Solo fuentes operativas</span>
+        <span class="stext" data-i18n="f_oper">Solo fuentes operativas</span>
       </label>
       <label class="switch" style="margin-top:12px">
         <input type="checkbox" id="fFav">
         <span class="track"><span class="knob"></span></span>
-        <span class="stext">Solo favoritas ❤️</span>
+        <span class="stext" data-i18n="f_fav">Solo favoritas ❤️</span>
       </label>
     </div>
     <div class="fgroup">
-      <div class="flabel">¿Para quién?</div>
+      <div class="flabel" data-i18n="f_who">¿Para quién?</div>
       <div class="segment" id="fUso">
-        <button data-uso="todas" class="active">Todas</button>
-        <button data-uso="personas">Personas</button>
-        <button data-uso="perros">Perros 🐾</button>
+        <button data-uso="todas" class="active" data-i18n="f_all">Todas</button>
+        <button data-uso="personas" data-i18n="f_people">Personas</button>
+        <button data-uso="perros" data-i18n="f_dogs">Perros 🐾</button>
       </div>
     </div>
-    <button class="btn" id="filterApply">Ver <span id="filterCount">—</span> fuentes</button>
+    <button class="btn" id="filterApply"><span data-i18n="f_show">Ver</span> <span id="filterCount">—</span> <span data-i18n="f_fountains">fuentes</span></button>
   </div>
 
   <!-- ============ ABOUT ============ -->
@@ -125,31 +125,39 @@
     <button class="close" id="aboutClose" aria-label="Cerrar">×</button>
     <img class="logo" src="icon-192.png?v=1.5" alt="">
     <h1>Fuentes de Madrid</h1>
-    <p class="tag">¿Dónde está la fuente más cercana?</p>
-    <p class="desc">
+    <p class="tag" data-i18n="splash_tag">¿Dónde está la fuente más cercana?</p>
+    <p class="desc" data-i18n="about_desc">
       Datos oficiales del <a href="https://datos.madrid.es/dataset/300051-0-fuentes" target="_blank" rel="noopener">Ayuntamiento de Madrid</a> (CC BY 4.0).
     </p>
-    <p class="desc privacy">La ubicación sólo se usa para ajustar el mapa y no se transmite ni guarda en ningún sitio.</p>
-    <p class="desc privacy">La configuración de fuentes favoritas se guarda de forma local en tu navegador.</p>
+    <p class="desc privacy" data-i18n="privacy1">La ubicación sólo se usa para ajustar el mapa y no se transmite ni guarda en ningún sitio.</p>
+    <p class="desc privacy" data-i18n="privacy2">La configuración de fuentes favoritas se guarda de forma local en tu navegador.</p>
     <p class="updated"><span class="dot"></span><span id="updatedText">—</span></p>
-    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.10.1</span></button>
+    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.11.0</span></button>
   </div>
 
   <!-- ============ AJUSTES ============ -->
   <div id="settings">
     <button class="close" id="settingsClose" aria-label="Cerrar">×</button>
-    <h1 class="set-title">Ajustes</h1>
+    <h1 class="set-title" data-i18n="settings_h">Ajustes</h1>
     <div class="set-scroll">
       <div class="fgroup">
-        <div class="flabel">Tema</div>
-        <div class="segment" id="setTheme">
-          <button data-theme="light">Claro</button>
-          <button data-theme="dark">Oscuro</button>
-          <button data-theme="system" class="active">Sistema</button>
+        <div class="flabel" data-i18n="set_idioma">Idioma</div>
+        <div class="segment" id="setLang">
+          <button data-lang="auto" class="active" data-i18n="lang_auto">Automático</button>
+          <button data-lang="es" data-i18n="lang_es">Español</button>
+          <button data-lang="en" data-i18n="lang_en">Inglés</button>
         </div>
       </div>
       <div class="fgroup">
-        <div class="flabel">Color de acento</div>
+        <div class="flabel" data-i18n="set_tema">Tema</div>
+        <div class="segment" id="setTheme">
+          <button data-theme="light" data-i18n="set_claro">Claro</button>
+          <button data-theme="dark" data-i18n="set_oscuro">Oscuro</button>
+          <button data-theme="system" class="active" data-i18n="set_sistema">Sistema</button>
+        </div>
+      </div>
+      <div class="fgroup">
+        <div class="flabel" data-i18n="set_color">Color de acento</div>
         <div class="swatches" id="setAccent">
           <button data-accent="blue" style="--sw:#1f7fe0" class="active" aria-label="Azul"></button>
           <button data-accent="teal" style="--sw:#0ca7a0" aria-label="Turquesa"></button>
@@ -160,23 +168,36 @@
         </div>
       </div>
       <div class="fgroup">
-        <div class="flabel">Mapa</div>
-        <div class="segment grid2" id="setMap">
-          <button data-map="voyager" class="active">Moderno</button>
-          <button data-map="osm">Clásico</button>
-          <button data-map="positron">Claro</button>
-          <button data-map="dark">Oscuro</button>
+        <div class="flabel" data-i18n="set_mapa">Mapa</div>
+        <div class="mapgrid" id="setMap">
+          <button data-map="moderno" class="active"><span class="mp mp-moderno"></span><span data-i18n="map_moderno">Moderno</span></button>
+          <button data-map="clasico"><span class="mp mp-clasico"></span><span data-i18n="map_clasico">Clásico</span></button>
+          <button data-map="minimalista"><span class="mp mp-min"></span><span data-i18n="map_minimalista">Minimalista</span></button>
+          <button data-map="cyberpunk"><span class="mp mp-cyber"></span><span data-i18n="map_cyberpunk">Cyberpunk</span></button>
+          <button data-map="colorido"><span class="mp mp-color"></span><span data-i18n="map_colorido">Colorido</span></button>
+          <button data-map="sepia"><span class="mp mp-sepia"></span><span data-i18n="map_sepia">Sepia</span></button>
         </div>
-        <p class="set-hint">En tema oscuro se usa siempre el mapa oscuro.</p>
       </div>
       <div class="fgroup">
-        <div class="flabel">Datos · favoritas y ajustes</div>
+        <div class="flabel" data-i18n="set_estela">Estela de ubicación</div>
+        <label class="switch">
+          <input type="checkbox" id="fTrail" checked>
+          <span class="track"><span class="knob"></span></span>
+          <span class="stext" data-i18n="set_estela_on">Mostrar el rastro de tu movimiento</span>
+        </label>
+        <div id="trailLenRow" style="margin-top:16px">
+          <div class="flabel"><span data-i18n="set_estela_len">Longitud</span>: <span id="trailLenVal">5</span></div>
+          <input type="range" id="fTrailLen" min="3" max="10" value="5" class="slider">
+        </div>
+      </div>
+      <div class="fgroup">
+        <div class="flabel" data-i18n="set_datos">Datos · favoritas y ajustes</div>
         <div class="set-row">
-          <button class="btn ghost" id="exportBtn">Exportar</button>
-          <button class="btn ghost" id="importBtn">Importar</button>
+          <button class="btn ghost" id="exportBtn" data-i18n="btn_export">Exportar</button>
+          <button class="btn ghost" id="importBtn" data-i18n="btn_import">Importar</button>
           <input type="file" id="importFile" accept="application/json,.json" hidden>
         </div>
-        <p class="set-hint">Para llevar tu configuración a otro móvil o navegador.</p>
+        <p class="set-hint" data-i18n="set_datos_hint">Para llevar tu configuración a otro móvil o navegador.</p>
       </div>
     </div>
   </div>
@@ -208,6 +229,6 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js" referrerpolicy="no-referrer"></script>
-  <script src="app.js?v=1.10.1"></script>
+  <script src="app.js?v=1.11.0"></script>
 </body>
 </html>

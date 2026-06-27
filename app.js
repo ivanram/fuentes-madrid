@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.10.1';
+const APP_VERSION = '1.11.0';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
@@ -43,18 +43,110 @@ function toggleFav(f) {
    AJUSTES (tema, tema de mapa, import/export) — persistentes
    ============================================================ */
 const SETTINGS_KEY = 'fuentes_settings_v1';
-let settings = { theme: 'system', map: 'voyager', accent: 'blue' };
+let settings = { theme: 'system', map: 'moderno', accent: 'blue', trailOn: true, trailLen: 5, lang: 'auto' };
 try { settings = Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch (_) {}
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (_) {} }
+
+/* ============================================================
+   IDIOMA (es / en) — automático según el navegador, o elegido
+   ============================================================ */
+const I18N = {
+  es: {
+    loading_text: 'Cargando fuentes…', splash_tag: '¿Dónde está la fuente más cercana?',
+    splash_desc: 'Encuentra la fuente pública de agua potable más cercana, según los <a href="https://datos.madrid.es/dataset/300051-0-fuentes" target="_blank" rel="noopener">datos oficiales del Ayuntamiento</a>.',
+    privacy1: 'La ubicación sólo se usa para ajustar el mapa y no se transmite ni guarda en ningún sitio.',
+    privacy2: 'La configuración de fuentes favoritas se guarda de forma local en tu navegador.',
+    btn_allow: 'Permitir ubicación', filter_h: 'Filtrar fuentes', settings_h: 'Ajustes',
+    route: 'Ruta andando', ar_view: 'Ver con AR', f_estado: 'Estado', f_oper: 'Solo fuentes operativas',
+    f_fav: 'Solo favoritas ❤️', f_who: '¿Para quién?', f_all: 'Todas', f_people: 'Personas', f_dogs: 'Perros 🐾',
+    f_show: 'Ver', f_fountains: 'fuentes',
+    about_desc: 'Datos oficiales del <a href="https://datos.madrid.es/dataset/300051-0-fuentes" target="_blank" rel="noopener">Ayuntamiento de Madrid</a> (CC BY 4.0).',
+    set_idioma: 'Idioma', lang_auto: 'Automático', lang_es: 'Español', lang_en: 'Inglés',
+    set_tema: 'Tema', set_claro: 'Claro', set_oscuro: 'Oscuro', set_sistema: 'Sistema', set_color: 'Color de acento',
+    set_mapa: 'Mapa', map_moderno: 'Moderno', map_clasico: 'Clásico', map_minimalista: 'Minimalista',
+    map_cyberpunk: 'Cyberpunk', map_colorido: 'Colorido', map_sepia: 'Sepia',
+    set_estela: 'Estela de ubicación', set_estela_on: 'Mostrar el rastro de tu movimiento', set_estela_len: 'Longitud',
+    set_datos: 'Datos · favoritas y ajustes', btn_export: 'Exportar', btn_import: 'Importar',
+    set_datos_hint: 'Para llevar tu configuración a otro móvil o navegador.',
+    footer: 'Creado por Ivan con ❤️ y mucha IA',
+    north: 'Norte arriba', free: 'Modo libre', nearest: 'Fuente más cercana', exported: 'Configuración exportada',
+    imported: 'Configuración importada ✓', bad_file: 'Ese archivo no es válido', updating: 'Actualizando…',
+    data_updated: 'Datos actualizados', db_error: 'No se pudo cargar la base de datos.',
+    err_denied: 'Permiso denegado. Actívalo en los ajustes del navegador para ver las fuentes cercanas.',
+    err_locate: 'No hemos podido obtener tu ubicación. Inténtalo de nuevo.',
+    err_load: 'No se pudieron cargar las fuentes. Recarga la página e inténtalo de nuevo.',
+    searching: 'Buscando tu posición…', retry: 'Reintentar', no_geo: 'Tu navegador no permite geolocalización.',
+    fountain: 'Fuente', fountain_water: 'Fuente de agua', operative: 'Operativa', out_service: 'Sin servicio',
+    use_people: 'Para personas', use_dogs: 'Para perros', use_both: 'Personas y perros', use_unknown: 'Uso no especificado',
+    ar_almost: '¡Ya casi!', ar_steps: 'La fuente está a unos pasos de ti',
+    ar_cal: 'Mueve el móvil en forma de 8 para calibrar la brújula', ar_lift: 'Levanta el móvil para ver la fuente',
+    ar_follow: 'Sigue el icono o la flecha', ar_cam_no: 'Tu navegador no permite usar la cámara para AR.',
+    ar_cam_err: 'No se pudo abrir la cámara. Revisa los permisos.', ar_perm: 'Necesito permiso de orientación para la brújula.'
+  },
+  en: {
+    loading_text: 'Loading fountains…', splash_tag: "Where's the nearest fountain?",
+    splash_desc: 'Find the nearest public drinking fountain, from the <a href="https://datos.madrid.es/dataset/300051-0-fuentes" target="_blank" rel="noopener">official City of Madrid data</a>.',
+    privacy1: 'Your location is only used to frame the map; it is never sent or stored anywhere.',
+    privacy2: 'Your favourite fountains are saved locally in your browser.',
+    btn_allow: 'Allow location', filter_h: 'Filter fountains', settings_h: 'Settings',
+    route: 'Walking route', ar_view: 'View in AR', f_estado: 'Status', f_oper: 'Working fountains only',
+    f_fav: 'Favourites only ❤️', f_who: 'For whom?', f_all: 'All', f_people: 'People', f_dogs: 'Dogs 🐾',
+    f_show: 'Show', f_fountains: 'fountains',
+    about_desc: 'Official data from the <a href="https://datos.madrid.es/dataset/300051-0-fuentes" target="_blank" rel="noopener">City of Madrid</a> (CC BY 4.0).',
+    set_idioma: 'Language', lang_auto: 'Automatic', lang_es: 'Spanish', lang_en: 'English',
+    set_tema: 'Theme', set_claro: 'Light', set_oscuro: 'Dark', set_sistema: 'System', set_color: 'Accent colour',
+    set_mapa: 'Map', map_moderno: 'Modern', map_clasico: 'Classic', map_minimalista: 'Minimal',
+    map_cyberpunk: 'Cyberpunk', map_colorido: 'Colourful', map_sepia: 'Sepia',
+    set_estela: 'Location trail', set_estela_on: 'Show the trail of your movement', set_estela_len: 'Length',
+    set_datos: 'Data · favourites & settings', btn_export: 'Export', btn_import: 'Import',
+    set_datos_hint: 'To move your settings to another phone or browser.',
+    footer: 'Made by Ivan with ❤️ and lots of AI',
+    north: 'North up', free: 'Free mode', nearest: 'Nearest fountain', exported: 'Settings exported',
+    imported: 'Settings imported ✓', bad_file: "That file isn't valid", updating: 'Updating…',
+    data_updated: 'Data updated', db_error: "Couldn't load the database.",
+    err_denied: 'Permission denied. Enable it in your browser settings to see nearby fountains.',
+    err_locate: "We couldn't get your location. Try again.",
+    err_load: "Couldn't load the fountains. Reload the page and try again.",
+    searching: 'Finding your position…', retry: 'Retry', no_geo: "Your browser doesn't support geolocation.",
+    fountain: 'Fountain', fountain_water: 'Drinking fountain', operative: 'Working', out_service: 'Out of service',
+    use_people: 'For people', use_dogs: 'For dogs', use_both: 'People and dogs', use_unknown: 'Unspecified use',
+    ar_almost: 'Almost there!', ar_steps: 'The fountain is a few steps away',
+    ar_cal: 'Move your phone in a figure 8 to calibrate the compass', ar_lift: 'Lift your phone to see the fountain',
+    ar_follow: 'Follow the icon or the arrow', ar_cam_no: "Your browser can't use the camera for AR.",
+    ar_cam_err: "Couldn't open the camera. Check permissions.", ar_perm: 'I need orientation permission for the compass.'
+  }
+};
+function getLang() {
+  if (settings.lang === 'es' || settings.lang === 'en') return settings.lang;
+  return (navigator.language || 'es').toLowerCase().indexOf('es') === 0 ? 'es' : 'en';
+}
+function t(k) { const L = getLang(); return (I18N[L] && I18N[L][k]) || I18N.es[k] || k; }
+function applyI18n() {
+  const L = getLang();
+  document.documentElement.setAttribute('lang', L);
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const k = el.getAttribute('data-i18n');
+    if (I18N[L][k] != null) { if (/[<&]/.test(I18N[L][k])) el.innerHTML = I18N[L][k]; else el.textContent = I18N[L][k]; }
+  });
+}
 
 const ATTRIB = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OSM</a> &middot; ' +
                '<a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a> &middot; ' +
                '<a href="' + INFO_URL + '" target="_blank" rel="noopener">Ayto. de Madrid</a>';
-const MAP_TILES = {
+const TILES = {
   voyager:  { url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', sub: 'abcd' },
-  osm:      { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', sub: 'abc' },
   positron: { url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', sub: 'abcd' },
-  dark:     { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', sub: 'abcd' }
+  darkm:    { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', sub: 'abcd' },
+  osm:      { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', sub: 'abc' }
+};
+/* cada tema tiene variante clara y oscura (según el tema de la app). f = filtro CSS sobre las teselas */
+const MAP_THEMES = {
+  moderno:     { light: { t: 'voyager',  f: '' },                                              dark: { t: 'darkm', f: '' } },
+  clasico:     { light: { t: 'osm',      f: '' },                                              dark: { t: 'osm',   f: 'invert(.92) hue-rotate(180deg) saturate(.85) brightness(.95)' } },
+  minimalista: { light: { t: 'positron', f: '' },                                              dark: { t: 'darkm', f: '' } },
+  cyberpunk:   { light: { t: 'positron', f: 'hue-rotate(225deg) saturate(2) contrast(1.1)' },  dark: { t: 'darkm', f: 'hue-rotate(190deg) saturate(2.4) brightness(1.05) contrast(1.18)' } },
+  colorido:    { light: { t: 'voyager',  f: 'saturate(1.7)' },                                 dark: { t: 'darkm', f: 'saturate(1.9) brightness(1.12)' } },
+  sepia:       { light: { t: 'positron', f: 'sepia(.62) contrast(1.05) brightness(1.02)' },    dark: { t: 'darkm', f: 'sepia(.5) hue-rotate(-18deg) brightness(.95)' } }
 };
 let tileLayer = null;
 let ACCENT = '#1f7fe0', ACCENT_L = '#3ea8ff';
@@ -80,11 +172,14 @@ function applyTheme() {
 }
 function applyMapTheme() {
   if (!map) return;
-  const key = isDark() ? 'dark' : settings.map;          // tema oscuro → siempre mapa oscuro
-  const t = MAP_TILES[key] || MAP_TILES.voyager;
+  const theme = MAP_THEMES[settings.map] || MAP_THEMES.moderno;
+  const cfg = isDark() ? theme.dark : theme.light;                  // claro u oscuro según el tema de la app
+  const tile = TILES[cfg.t] || TILES.voyager;
   if (tileLayer) map.removeLayer(tileLayer);
-  tileLayer = L.tileLayer(t.url, { attribution: ATTRIB, subdomains: t.sub, maxZoom: 20, detectRetina: true });
+  tileLayer = L.tileLayer(tile.url, { attribution: ATTRIB, subdomains: tile.sub, maxZoom: 20, detectRetina: true });
   tileLayer.addTo(map); tileLayer.setZIndex(0);
+  const el = tileLayer.getContainer && tileLayer.getContainer();
+  if (el) el.style.filter = cfg.f || '';                            // filtro CSS para sepia/cyber/colorido
 }
 function applyAccent() {
   const a = ACCENTS[settings.accent] || ACCENTS.blue;
@@ -92,8 +187,44 @@ function applyAccent() {
   const s = document.documentElement.style;
   s.setProperty('--blue', a.main); s.setProperty('--blue-d', a.d); s.setProperty('--blue-l', a.l);
   const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', a.main);
-  if (map) { for (const f of shown) if (f.marker) f.marker.setIcon(f === selected ? nearestIcon(f) : fountainIcon(f)); }
+  if (map) { for (const f of shown) if (f.marker) f.marker.setIcon(f === selected ? nearestIcon(f) : fountainIcon(f)); renderTrail(); }
 }
+
+/* ---- Estela de ubicación (rastro de puntos que se difuminan) ---- */
+let trail = [];
+let trailLayer = null;
+let trailTimer = null;
+let lastTrailPos = null;
+function trailMax() { return Math.max(3, Math.min(10, parseInt(settings.trailLen, 10) || 5)); }
+function clearTrailLayer() { trail = []; lastTrailPos = null; if (trailLayer) trailLayer.clearLayers(); }
+function startTrail() {
+  if (!map) return;
+  if (!trailLayer) trailLayer = L.layerGroup().addTo(map);
+  if (trailTimer) { clearInterval(trailTimer); trailTimer = null; }
+  if (!settings.trailOn) { clearTrailLayer(); return; }
+  trailTimer = setInterval(sampleTrail, 3000);   // andamos despacio: cada 3 s basta
+}
+function sampleTrail() {
+  if (!settings.trailOn || !userPos || !map) return;
+  if (lastTrailPos && haversine(lastTrailPos.lat, lastTrailPos.lon, userPos.lat, userPos.lon) < 4) return;   // no te has movido
+  trail.unshift({ lat: userPos.lat, lon: userPos.lon });
+  lastTrailPos = { lat: userPos.lat, lon: userPos.lon };
+  if (trail.length > trailMax()) trail.length = trailMax();
+  renderTrail();
+}
+function renderTrail() {
+  if (!trailLayer) return;
+  trailLayer.clearLayers();
+  if (!settings.trailOn) return;
+  const n = trail.length;
+  for (let i = 0; i < n; i++) {
+    const op = 1 - i / (n + 0.6);                 // el punto más reciente es el más opaco
+    L.circleMarker([trail[i].lat, trail[i].lon], {
+      radius: 5, color: '#fff', weight: 1.4, opacity: op * 0.9, fillColor: ACCENT, fillOpacity: op
+    }).addTo(trailLayer);
+  }
+}
+
 /* refresca el tema del sistema en vivo si está en modo "sistema" */
 try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (settings.theme === 'system') applyTheme(); }); } catch (_) {}
 
@@ -103,7 +234,7 @@ function exportData() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.download = 'fuentes-madrid-config.json'; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1500);
-  toast('Configuración exportada');
+  toast(t('exported'));
 }
 function importData(file) {
   const r = new FileReader();
@@ -115,18 +246,24 @@ function importData(file) {
       if (typeof d.target === 'string') { try { localStorage.setItem(TARGET_KEY, d.target); } catch (_) {} }
       if (map) { for (const f of shown) if (f.marker) f.marker.setIcon(f === selected ? nearestIcon(f) : fountainIcon(f)); applyFilters(); renderMarkers(); }
       syncSettingsUI();
-      toast('Configuración importada ✓');
-    } catch (e) { toast('Ese archivo no es válido'); }
+      toast(t('imported'));
+    } catch (e) { toast(t('bad_file')); }
   };
   r.readAsText(file);
 }
 function syncSettingsUI() {
-  const st = $('setTheme'), sm = $('setMap'), sa = $('setAccent');
+  const st = $('setTheme'), sm = $('setMap'), sa = $('setAccent'), sl = $('setLang');
   if (st) st.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.theme === settings.theme));
   if (sm) sm.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.map === settings.map));
   if (sa) sa.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.accent === settings.accent));
+  if (sl) sl.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.lang === settings.lang));
+  if ($('fTrail')) $('fTrail').checked = !!settings.trailOn;
+  if ($('fTrailLen')) $('fTrailLen').value = trailMax();
+  if ($('trailLenVal')) $('trailLenVal').textContent = trailMax();
+  if ($('trailLenRow')) $('trailLenRow').style.display = settings.trailOn ? '' : 'none';
 }
 
+applyI18n();     // idioma (es/en)
 applyAccent();   // color de acento (variables CSS)
 applyTheme();    // tema cuanto antes (evita parpadeo)
 
@@ -204,7 +341,7 @@ function isDog(f) { const u = (f.props.USO || '').toUpperCase(); return u === 'M
 function setUpdated(ms, n) {
   const d = new Date(ms);
   const fmt = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'numeric', year: '2-digit' });
-  if ($('updatedText')) $('updatedText').textContent = `Datos actualizados: ${fmt} · ${n} fuentes`;
+  if ($('updatedText')) $('updatedText').textContent = `${t('data_updated')}: ${fmt} · ${n} ${t('f_fountains')}`;
 }
 
 /* ============================================================
@@ -231,19 +368,17 @@ async function autoStartIfAllowed() {
 
 $('askLocation').addEventListener('click', requestLocation);
 function requestLocation() {
-  if (!('geolocation' in navigator)) { $('splashErr').textContent = 'Tu navegador no permite geolocalización.'; return; }
+  if (!('geolocation' in navigator)) { $('splashErr').textContent = t('no_geo'); return; }
   const btn = $('askLocation');
   btn.disabled = true;
-  btn.innerHTML = '<span class="spin"></span> Buscando tu posición…';
+  btn.innerHTML = `<span class="spin"></span> ${t('searching')}`;
   $('splashErr').textContent = '';
   navigator.geolocation.getCurrentPosition(
     (pos) => { userPos = posToObj(pos); startApp(); },
     (err) => {
       btn.disabled = false;
-      btn.innerHTML = 'Permitir ubicación';
-      $('splashErr').textContent = err.code === 1
-        ? 'Permiso denegado. Actívalo en los ajustes del navegador para ver las fuentes cercanas.'
-        : 'No hemos podido obtener tu ubicación. Inténtalo de nuevo.';
+      btn.textContent = t('btn_allow');
+      $('splashErr').textContent = err.code === 1 ? t('err_denied') : t('err_locate');
     },
     { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
   );
@@ -256,8 +391,8 @@ async function startApp() {
     $('loading').style.display = 'none';
     $('splash').style.display = 'flex';
     $('askLocation').disabled = false;
-    $('askLocation').innerHTML = 'Reintentar';
-    $('splashErr').textContent = 'No se pudieron cargar las fuentes. Recarga la página e inténtalo de nuevo.';
+    $('askLocation').textContent = t('retry');
+    $('splashErr').textContent = t('err_load');
     return;
   }
   $('loading').style.display = 'none';
@@ -377,6 +512,7 @@ function initMap() {
   $('mapMode').addEventListener('click', onModeButton);
   $('fitBtn').addEventListener('click', fitUserAndFountain);
 
+  startTrail();      // estela de ubicación
   restoreTarget();   // recupera la última fuente seleccionada (persistente)
   requestAnimationFrame(() => { map.invalidateSize(); fitInitialView(); renderMarkers(); updateModeButton(); updateFitBtn(); });
 }
@@ -441,7 +577,7 @@ function fitInitialView() {
   const dLon = radius / (111320 * Math.cos(toRad(userPos.lat)));
   const bounds = L.latLngBounds([userPos.lat - dLat, userPos.lon - dLon], [userPos.lat + dLat, userPos.lon + dLon]);
   map.fitBounds(bounds, { padding: [40, 40], maxZoom: 18 });
-  toast(`Fuente más cercana: ${fmtDist(near.dist)}`);
+  toast(`${t('nearest')}: ${fmtDist(near.dist)}`);
 }
 
 /* ============================================================
@@ -455,12 +591,12 @@ function setBearingSafe(deg) {
 }
 function setMode(m) {
   mapMode = m;
-  if (m === 'north') { setBearingSafe(0); toast('Norte arriba'); }
+  if (m === 'north') { setBearingSafe(0); toast(t('north')); }
   updateModeButton();
 }
 function onModeButton() { setMode('north'); }   // el botón SOLO activa Norte arriba (si ya lo está, no hace nada visible)
 function onMapRotate() {
-  if (!programmaticBearing && mapMode !== 'free') { mapMode = 'free'; toast('Modo libre'); }   // girar a mano = modo libre
+  if (!programmaticBearing && mapMode !== 'free') { mapMode = 'free'; toast(t('free')); }   // girar a mano = modo libre
   updateModeButton();
 }
 function updateModeButton() {
@@ -541,23 +677,23 @@ const USO_ICON = {
 };
 function usoLabel(u) {
   u = (u || '').toUpperCase();
-  if (u === 'MIXTO') return ['MIXTO', 'Personas y perros'];
-  if (u === 'MASCOTAS') return ['MASCOTAS', 'Para perros'];
-  if (u === 'PERSONAS') return ['PERSONAS', 'Para personas'];
-  return ['MIXTO', 'Uso no especificado'];
+  if (u === 'MIXTO') return ['MIXTO', t('use_both')];
+  if (u === 'MASCOTAS') return ['MASCOTAS', t('use_dogs')];
+  if (u === 'PERSONAS') return ['PERSONAS', t('use_people')];
+  return ['MIXTO', t('use_unknown')];
 }
 function openSheet(f) {
   setTarget(f);
   const p = f.props;
   const addr = [p.DIRECCION, p.DIRECCION_AUX].filter(Boolean).join(' · ');
-  $('sName').textContent = p.BARRIO ? `Fuente · ${p.BARRIO}` : 'Fuente de agua';
+  $('sName').textContent = p.BARRIO ? `${t('fountain')} · ${p.BARRIO}` : t('fountain_water');
   $('sAddr').textContent = [addr, p.DISTRITO].filter(Boolean).join(' — ');
   const [usoKey, usoTxt] = usoLabel(p.USO);
   const operative = isOperative(f);
   const chips = [];
   chips.push(`<span class="chip dist">${pinSvg()} ${fmtDist(f.dist)}</span>`);
   chips.push(`<span class="chip">${USO_ICON[usoKey] || ''} ${usoTxt}</span>`);
-  chips.push(`<span class="chip ${operative ? 'ok' : 'bad'}">${operative ? checkSvg() : crossSvg()} ${operative ? 'Operativa' : titleCase(p.ESTADO || 'Sin servicio')}</span>`);
+  chips.push(`<span class="chip ${operative ? 'ok' : 'bad'}">${operative ? checkSvg() : crossSvg()} ${operative ? t('operative') : (p.ESTADO ? titleCase(p.ESTADO) : t('out_service'))}</span>`);
   $('sChips').innerHTML = chips.join('');
   updateFavBtn();
   $('sheet').classList.add('open');
@@ -590,7 +726,7 @@ $('sheetClose').addEventListener('click', closeSheet);
   el.addEventListener('touchmove', (e) => {
     if (startY == null) return;
     dy = e.touches[0].clientY - startY;
-    if (dy > 0) { el.style.transform = `translateY(${dy}px)`; e.preventDefault(); }
+    if (dy > 0) { el.style.transform = (window.innerWidth >= 760 ? 'translateX(-50%) ' : '') + `translateY(${dy}px)`; e.preventDefault(); }
   }, { passive: false });
   el.addEventListener('touchend', () => {
     if (startY == null) return;
@@ -627,16 +763,16 @@ $('arClose').addEventListener('click', stopAR);
 
 async function startAR() {
   if (!selected) return;
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { toast('Tu navegador no permite usar la cámara para AR.'); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { toast(t('ar_cam_no')); return; }
   try {
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
       const p = await DeviceOrientationEvent.requestPermission();
-      if (p !== 'granted') toast('Necesito permiso de orientación para la brújula.');
+      if (p !== 'granted') toast(t('ar_perm'));
     }
   } catch (_) {}
   try {
     arStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
-  } catch (e) { toast('No se pudo abrir la cámara. Revisa los permisos.'); return; }
+  } catch (e) { toast(t('ar_cam_err')); return; }
   $('arVideo').srcObject = arStream;
   $('ar').style.display = 'block';
   $('arName').textContent = $('sName').textContent;
@@ -684,12 +820,12 @@ function updateAR() {
   const brg = bearing(userPos.lat, userPos.lon, selected.lat, selected.lon);
   const dEl = $('arDist'), hintEl = $('arHint');
   if (dist < 12) {
-    dEl.textContent = '¡Ya casi!'; dEl.classList.add('ar-arrived');
-    hintEl.textContent = 'La fuente está a unos pasos de ti';
+    dEl.textContent = t('ar_almost'); dEl.classList.add('ar-arrived');
+    hintEl.textContent = t('ar_steps');
   } else {
     dEl.textContent = fmtDist(dist); dEl.classList.remove('ar-arrived');
-    hintEl.textContent = arHeading == null ? 'Mueve el móvil en forma de 8 para calibrar la brújula'
-                       : (arPitch != null && arPitch > 45 ? 'Sigue el icono o la flecha' : 'Levanta el móvil para ver la fuente');
+    hintEl.textContent = arHeading == null ? t('ar_cal')
+                       : (arPitch != null && arPitch > 45 ? t('ar_follow') : t('ar_lift'));
   }
   // diferencia más corta entre el rumbo a la fuente y hacia dónde apuntas (−180..180, 0 = de frente)
   const offset = arHeading == null ? 0 : (((brg - arHeading + 540) % 360) - 180);
@@ -717,7 +853,7 @@ if ($('aboutVersion')) $('aboutVersion').textContent = 'v' + APP_VERSION;
 
 async function forceUpdate(ev) {
   if (ev) ev.preventDefault();
-  toast('Actualizando…');
+  toast(t('updating'));
   try {
     if ('serviceWorker' in navigator) {
       const regs = await navigator.serviceWorker.getRegistrations();
@@ -751,6 +887,20 @@ $('setMap').querySelectorAll('button').forEach(b => b.addEventListener('click', 
 $('setAccent').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
   settings.accent = b.dataset.accent; saveSettings(); applyAccent(); syncSettingsUI();
 }));
+$('setLang').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+  settings.lang = b.dataset.lang; saveSettings(); applyI18n(); syncSettingsUI();
+}));
+$('fTrail').addEventListener('change', () => {
+  settings.trailOn = $('fTrail').checked; saveSettings();
+  if (settings.trailOn) startTrail(); else clearTrailLayer();
+  renderTrail(); syncSettingsUI();
+});
+$('fTrailLen').addEventListener('input', () => {
+  settings.trailLen = parseInt($('fTrailLen').value, 10); saveSettings();
+  if ($('trailLenVal')) $('trailLenVal').textContent = trailMax();
+  if (trail.length > trailMax()) trail.length = trailMax();
+  renderTrail();
+});
 $('exportBtn').addEventListener('click', exportData);
 $('importBtn').addEventListener('click', () => $('importFile').click());
 $('importFile').addEventListener('change', (e) => { if (e.target.files[0]) importData(e.target.files[0]); e.target.value = ''; });
@@ -759,7 +909,7 @@ window.addEventListener('orientationchange', () => { if (map) setTimeout(() => m
 
 (async function boot() {
   try { await ensureData(); }
-  catch (e) { setUpdated(Date.now(), 0); if ($('updatedText')) $('updatedText').textContent = 'No se pudo cargar la base de datos.'; }
+  catch (e) { setUpdated(Date.now(), 0); if ($('updatedText')) $('updatedText').textContent = t('db_error'); }
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   autoStartIfAllowed();
 })();
