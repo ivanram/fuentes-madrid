@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.11.1';
+const APP_VERSION = '1.11.2';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
@@ -70,6 +70,7 @@ const I18N = {
     set_datos: 'Datos · favoritas y ajustes', btn_export: 'Exportar', btn_import: 'Importar',
     set_datos_hint: 'Para llevar tu configuración a otro móvil o navegador.',
     footer: 'Creado por Ivan con ❤️ y mucha IA',
+    update_available: 'Nueva versión disponible', update_to: 'Actualizar a',
     north: 'Norte arriba', free: 'Modo libre', nearest: 'Fuente más cercana', exported: 'Configuración exportada',
     imported: 'Configuración importada ✓', bad_file: 'Ese archivo no es válido', updating: 'Actualizando…',
     data_updated: 'Datos actualizados', db_error: 'No se pudo cargar la base de datos.',
@@ -103,6 +104,7 @@ const I18N = {
     set_datos: 'Data · favourites & settings', btn_export: 'Export', btn_import: 'Import',
     set_datos_hint: 'To move your settings to another phone or browser.',
     footer: 'Made by Ivan with ❤️ and lots of AI',
+    update_available: 'New version available', update_to: 'Update to',
     north: 'North up', free: 'Free mode', nearest: 'Nearest fountain', exported: 'Settings exported',
     imported: 'Settings imported ✓', bad_file: "That file isn't valid", updating: 'Updating…',
     data_updated: 'Data updated', db_error: "Couldn't load the database.",
@@ -144,13 +146,15 @@ const TILES = {
 /* cada tema tiene variante clara y oscura (según el tema de la app). f = filtro CSS sobre las teselas */
 /* Los oscuros NO usan teselas negras (apenas se leen): parten de un mapa claro
    y lo invierten (invert + hue-rotate 180), que da un mapa gris oscuro y legible. */
+/* Oscuros = mapa CLARO invertido → gris oscuro legible (no negro AMOLED).
+   contrast(<1)+brightness(>1) levantan el negro hacia gris manteniendo legibilidad. */
 const MAP_THEMES = {
-  moderno:     { light: { t: 'voyager',  f: '' },                                                       dark: { t: 'voyager',  f: 'invert(1) hue-rotate(180deg) brightness(.92) contrast(.9)' } },
-  clasico:     { light: { t: 'osm',      f: '' },                                                       dark: { t: 'osm',      f: 'invert(1) hue-rotate(180deg) brightness(.93) contrast(.95)' } },
-  minimalista: { light: { t: 'positron', f: '' },                                                       dark: { t: 'positron', f: 'invert(1) hue-rotate(180deg) brightness(.92)' } },
-  cyberpunk:   { light: { t: 'voyager',  f: 'saturate(1.9) hue-rotate(255deg) contrast(1.15) brightness(1.03)' }, dark: { t: 'voyager', f: 'invert(1) hue-rotate(225deg) saturate(2.6) brightness(1.05) contrast(1.22)' } },
-  colorido:    { light: { t: 'voyager',  f: 'saturate(2.3) contrast(1.08)' },                           dark: { t: 'voyager',  f: 'invert(1) hue-rotate(180deg) saturate(2.5) brightness(.97)' } },
-  sepia:       { light: { t: 'voyager',  f: 'sepia(.72) saturate(1.5) contrast(1.06)' },                dark: { t: 'voyager',  f: 'invert(1) hue-rotate(180deg) sepia(.55) saturate(1.3) brightness(.9)' } }
+  moderno:     { light: { t: 'voyager',  f: '' },                                                        dark: { t: 'voyager',  f: 'invert(1) hue-rotate(180deg) contrast(.86) brightness(1.08)' } },
+  clasico:     { light: { t: 'osm',      f: '' },                                                        dark: { t: 'osm',      f: 'invert(1) hue-rotate(180deg) contrast(.86) brightness(1.08)' } },
+  minimalista: { light: { t: 'positron', f: '' },                                                        dark: { t: 'positron', f: 'invert(1) hue-rotate(180deg) contrast(.7) brightness(1.22)' } },
+  cyberpunk:   { light: { t: 'voyager',  f: 'saturate(3.2) hue-rotate(270deg) contrast(1.6)' },          dark: { t: 'voyager',  f: 'invert(1) hue-rotate(215deg) saturate(3.2) contrast(1.32) brightness(1.02)' } },
+  colorido:    { light: { t: 'voyager',  f: 'saturate(3) contrast(1.15)' },                              dark: { t: 'voyager',  f: 'invert(1) hue-rotate(180deg) saturate(3) contrast(.9) brightness(1.2)' } },
+  sepia:       { light: { t: 'osm',      f: 'sepia(.85) saturate(1.6) contrast(1.1) brightness(.98)' },  dark: { t: 'osm',      f: 'invert(1) hue-rotate(180deg) sepia(.6) saturate(1.4) contrast(.82) brightness(1.12)' } }
 };
 let tileLayer = null;
 let ACCENT = '#1f7fe0', ACCENT_L = '#3ea8ff';
@@ -407,7 +411,7 @@ async function startApp() {
 }
 
 /* ---------- Panel "Acerca de" (al tocar el título) ---------- */
-$('aboutBtn').addEventListener('click', () => $('about').classList.add('open'));
+$('aboutBtn').addEventListener('click', () => { $('about').classList.add('open'); checkForUpdate(); });
 $('aboutClose').addEventListener('click', () => $('about').classList.remove('open'));
 
 /* ============================================================
@@ -869,6 +873,31 @@ async function forceUpdate(ev) {
 }
 if ($('forceUpdate')) $('forceUpdate').addEventListener('click', forceUpdate);
 
+/* ---- Comprobar si hay versión nueva publicada (vs. la cacheada) ---- */
+let updateAvailable = null;
+function reflectUpdate() {
+  const b = $('forceUpdate'); if (!b) return;
+  if (updateAvailable && updateAvailable !== APP_VERSION) {
+    b.classList.add('has-update');
+    b.textContent = `${t('update_to')} v${updateAvailable}`;
+  } else {
+    b.classList.remove('has-update');
+    b.innerHTML = `<span id="aboutVersion">v${APP_VERSION}</span>`;
+  }
+}
+function checkForUpdate() {
+  fetch('version.json?t=' + Date.now(), { cache: 'no-store' })
+    .then(r => (r && r.ok) ? r.json() : null)
+    .then(d => {
+      if (d && d.version && d.version !== APP_VERSION) {
+        updateAvailable = d.version;
+        reflectUpdate();
+        toast(`${t('update_available')} (v${d.version})`);
+      }
+    })
+    .catch(() => {});
+}
+
 $('count').addEventListener('click', openFilters);
 $('filterClose').addEventListener('click', closeFilters);
 $('filterApply').addEventListener('click', closeFilters);
@@ -915,5 +944,6 @@ window.addEventListener('orientationchange', () => { if (map) setTimeout(() => m
   try { await ensureData(); }
   catch (e) { setUpdated(Date.now(), 0); if ($('updatedText')) $('updatedText').textContent = t('db_error'); }
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  setTimeout(checkForUpdate, 2500);   // avisa si hay versión nueva publicada
   autoStartIfAllowed();
 })();

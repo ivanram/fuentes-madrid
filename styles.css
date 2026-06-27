@@ -295,6 +295,7 @@ header.bar .t:active{opacity:.6}
   font-size:.78rem;color:#9aa7b6;letter-spacing:.03em;text-decoration:underline;text-underline-offset:3px;
 }
 #about .version-link:active{opacity:.6}
+#about .version-link.has-update{ color:#fff;background:var(--blue);font-weight:700;padding:9px 18px;border-radius:999px;text-decoration:none;box-shadow:0 6px 16px rgba(31,127,224,.35); }
 #about .credit{margin-top:4px;font-size:.8rem;color:var(--muted)}
 #about .close{
   position:absolute;top:16px;right:16px;border:none;background:#fff;
