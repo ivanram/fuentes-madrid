@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.11.0';
+const APP_VERSION = '1.11.1';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
@@ -52,6 +52,7 @@ function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringif
    ============================================================ */
 const I18N = {
   es: {
+    app_short: 'Fuentes', app_full: 'Fuentes de Madrid',
     loading_text: 'Cargando fuentes…', splash_tag: '¿Dónde está la fuente más cercana?',
     splash_desc: 'Encuentra la fuente pública de agua potable más cercana, según los <a href="https://datos.madrid.es/dataset/300051-0-fuentes" target="_blank" rel="noopener">datos oficiales del Ayuntamiento</a>.',
     privacy1: 'La ubicación sólo se usa para ajustar el mapa y no se transmite ni guarda en ningún sitio.',
@@ -84,6 +85,7 @@ const I18N = {
     ar_cam_err: 'No se pudo abrir la cámara. Revisa los permisos.', ar_perm: 'Necesito permiso de orientación para la brújula.'
   },
   en: {
+    app_short: 'Fountains', app_full: 'Madrid Fountains',
     loading_text: 'Loading fountains…', splash_tag: "Where's the nearest fountain?",
     splash_desc: 'Find the nearest public drinking fountain, from the <a href="https://datos.madrid.es/dataset/300051-0-fuentes" target="_blank" rel="noopener">official City of Madrid data</a>.',
     privacy1: 'Your location is only used to frame the map; it is never sent or stored anywhere.',
@@ -140,13 +142,15 @@ const TILES = {
   osm:      { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', sub: 'abc' }
 };
 /* cada tema tiene variante clara y oscura (según el tema de la app). f = filtro CSS sobre las teselas */
+/* Los oscuros NO usan teselas negras (apenas se leen): parten de un mapa claro
+   y lo invierten (invert + hue-rotate 180), que da un mapa gris oscuro y legible. */
 const MAP_THEMES = {
-  moderno:     { light: { t: 'voyager',  f: '' },                                              dark: { t: 'darkm', f: '' } },
-  clasico:     { light: { t: 'osm',      f: '' },                                              dark: { t: 'osm',   f: 'invert(.92) hue-rotate(180deg) saturate(.85) brightness(.95)' } },
-  minimalista: { light: { t: 'positron', f: '' },                                              dark: { t: 'darkm', f: '' } },
-  cyberpunk:   { light: { t: 'positron', f: 'hue-rotate(225deg) saturate(2) contrast(1.1)' },  dark: { t: 'darkm', f: 'hue-rotate(190deg) saturate(2.4) brightness(1.05) contrast(1.18)' } },
-  colorido:    { light: { t: 'voyager',  f: 'saturate(1.7)' },                                 dark: { t: 'darkm', f: 'saturate(1.9) brightness(1.12)' } },
-  sepia:       { light: { t: 'positron', f: 'sepia(.62) contrast(1.05) brightness(1.02)' },    dark: { t: 'darkm', f: 'sepia(.5) hue-rotate(-18deg) brightness(.95)' } }
+  moderno:     { light: { t: 'voyager',  f: '' },                                                       dark: { t: 'voyager',  f: 'invert(1) hue-rotate(180deg) brightness(.92) contrast(.9)' } },
+  clasico:     { light: { t: 'osm',      f: '' },                                                       dark: { t: 'osm',      f: 'invert(1) hue-rotate(180deg) brightness(.93) contrast(.95)' } },
+  minimalista: { light: { t: 'positron', f: '' },                                                       dark: { t: 'positron', f: 'invert(1) hue-rotate(180deg) brightness(.92)' } },
+  cyberpunk:   { light: { t: 'voyager',  f: 'saturate(1.9) hue-rotate(255deg) contrast(1.15) brightness(1.03)' }, dark: { t: 'voyager', f: 'invert(1) hue-rotate(225deg) saturate(2.6) brightness(1.05) contrast(1.22)' } },
+  colorido:    { light: { t: 'voyager',  f: 'saturate(2.3) contrast(1.08)' },                           dark: { t: 'voyager',  f: 'invert(1) hue-rotate(180deg) saturate(2.5) brightness(.97)' } },
+  sepia:       { light: { t: 'voyager',  f: 'sepia(.72) saturate(1.5) contrast(1.06)' },                dark: { t: 'voyager',  f: 'invert(1) hue-rotate(180deg) sepia(.55) saturate(1.3) brightness(.9)' } }
 };
 let tileLayer = null;
 let ACCENT = '#1f7fe0', ACCENT_L = '#3ea8ff';

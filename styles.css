@@ -406,9 +406,9 @@ header.bar .iconbtn{ color:rgba(255,255,255,.92); }
 .mp-moderno{ background:linear-gradient(135deg,#eef1ea,#d9e3e8 60%,#c9dbe6); }
 .mp-clasico{ background:linear-gradient(135deg,#f3efe6,#e7ddc9); }
 .mp-min{ background:#fff; }
-.mp-cyber{ background:linear-gradient(135deg,#0a0420,#3a0d5e 55%,#0b2a52);box-shadow:inset 0 0 9px #d84ff0; }
-.mp-color{ background:linear-gradient(135deg,#7ee0a0,#7ec8ff 50%,#ffd47e); }
-.mp-sepia{ background:linear-gradient(135deg,#ead9bd,#c9a877); }
+.mp-cyber{ background:linear-gradient(135deg,#0d0322,#b026ff 48%,#00eaff);box-shadow:inset 0 0 10px #ff2bd6; }
+.mp-color{ background:linear-gradient(135deg,#2fd66f,#2f9bff 48%,#ffaa1e); }
+.mp-sepia{ background:linear-gradient(135deg,#e3cfa3,#b07f43); }
 
 /* ---- deslizador (longitud de estela) ---- */
 .slider{ -webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:999px;background:var(--line);margin-top:10px;outline:none; }
