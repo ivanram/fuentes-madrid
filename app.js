@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.11.2';
+const APP_VERSION = '1.12.0';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
@@ -137,35 +137,9 @@ function applyI18n() {
 const ATTRIB = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OSM</a> &middot; ' +
                '<a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a> &middot; ' +
                '<a href="' + INFO_URL + '" target="_blank" rel="noopener">Ayto. de Madrid</a>';
-const TILES = {
-  voyager:  { url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', sub: 'abcd' },
-  positron: { url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', sub: 'abcd' },
-  darkm:    { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', sub: 'abcd' },
-  osm:      { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', sub: 'abc' }
-};
-/* cada tema tiene variante clara y oscura (según el tema de la app). f = filtro CSS sobre las teselas */
-/* Los oscuros NO usan teselas negras (apenas se leen): parten de un mapa claro
-   y lo invierten (invert + hue-rotate 180), que da un mapa gris oscuro y legible. */
-/* Oscuros = mapa CLARO invertido → gris oscuro legible (no negro AMOLED).
-   contrast(<1)+brightness(>1) levantan el negro hacia gris manteniendo legibilidad. */
-const MAP_THEMES = {
-  moderno:     { light: { t: 'voyager',  f: '' },                                                        dark: { t: 'voyager',  f: 'invert(1) hue-rotate(180deg) contrast(.86) brightness(1.08)' } },
-  clasico:     { light: { t: 'osm',      f: '' },                                                        dark: { t: 'osm',      f: 'invert(1) hue-rotate(180deg) contrast(.86) brightness(1.08)' } },
-  minimalista: { light: { t: 'positron', f: '' },                                                        dark: { t: 'positron', f: 'invert(1) hue-rotate(180deg) contrast(.7) brightness(1.22)' } },
-  cyberpunk:   { light: { t: 'voyager',  f: 'saturate(3.2) hue-rotate(270deg) contrast(1.6)' },          dark: { t: 'voyager',  f: 'invert(1) hue-rotate(215deg) saturate(3.2) contrast(1.32) brightness(1.02)' } },
-  colorido:    { light: { t: 'voyager',  f: 'saturate(3) contrast(1.15)' },                              dark: { t: 'voyager',  f: 'invert(1) hue-rotate(180deg) saturate(3) contrast(.9) brightness(1.2)' } },
-  sepia:       { light: { t: 'osm',      f: 'sepia(.85) saturate(1.6) contrast(1.1) brightness(.98)' },  dark: { t: 'osm',      f: 'invert(1) hue-rotate(180deg) sepia(.6) saturate(1.4) contrast(.82) brightness(1.12)' } }
-};
+/* TILES, MAP_THEMES y ACCENTS viven ahora en themes.js (cargado antes que app.js) */
 let tileLayer = null;
 let ACCENT = '#1f7fe0', ACCENT_L = '#3ea8ff';
-const ACCENTS = {
-  blue:   { main: '#1f7fe0', d: '#1668bd', l: '#3ea8ff' },
-  teal:   { main: '#0ca7a0', d: '#0a847e', l: '#2bc9c2' },
-  green:  { main: '#2faa4e', d: '#24863d', l: '#46c969' },
-  purple: { main: '#7c5cff', d: '#6442e6', l: '#9a82ff' },
-  red:    { main: '#e23b4e', d: '#c02438', l: '#f06070' },
-  orange: { main: '#f08a1d', d: '#cf6f0c', l: '#ffa84a' }
-};
 
 function isDark() {
   const t = settings.theme;
@@ -527,17 +501,29 @@ function initMap() {
 
 /* ---------- marcadores: solo lo visible, con tope ---------- */
 function iconFor(f) { return f === selected ? nearestIcon(f) : fountainIcon(f); }   // nearestIcon = gota viva + parpadeo (ahora marca la seleccionada)
+/* Tamaño de celda (px) para fusionar marcadores: si varias fuentes caen en la
+   misma celda de pantalla, solo se muestra una. Al hacer zoom las celdas se
+   separan y reaparecen todas. Transparente: sin clic para desagrupar. */
+const CLUSTER_CELL = 44;
+
 function renderMarkers() {
   if (!map || !fountainLayer) return;
-  const b = map.getBounds().pad(0.25);
+  const b = map.getBounds().pad(0.2);
+  const z = map.getZoom();
+  const seen = new Set();
   let inView = [];
-  for (const f of fountains) if (b.contains([f.lat, f.lon])) inView.push(f);
-  if (inView.length > MARKER_CAP) {
-    const c = map.getCenter();
-    inView.sort((a, z) => map.distance(c, [a.lat, a.lon]) - map.distance(c, [z.lat, z.lon]));
-    inView = inView.slice(0, MARKER_CAP);
+  // `fountains` va ordenado por cercanía a ti → la representante de cada celda es la más cercana.
+  for (const f of fountains) {
+    if (!b.contains([f.lat, f.lon])) continue;
+    if (f === selected) continue; // la seleccionada se añade aparte, siempre visible
+    const p = map.project([f.lat, f.lon], z);
+    const key = ((p.x / CLUSTER_CELL) | 0) + ':' + ((p.y / CLUSTER_CELL) | 0);
+    if (seen.has(key)) continue; // celda ya ocupada → se fusiona
+    seen.add(key);
+    inView.push(f);
   }
-  if (selected && fountains.indexOf(selected) !== -1 && inView.indexOf(selected) === -1) inView.push(selected); // la seleccionada siempre visible
+  if (inView.length > MARKER_CAP) inView.length = MARKER_CAP; // tope de seguridad
+  if (selected && fountains.indexOf(selected) !== -1) inView.push(selected); // la seleccionada siempre visible
   const need = new Set(inView);
   for (const f of Array.from(shown)) {
     if (!need.has(f)) { if (f.marker) fountainLayer.removeLayer(f.marker); f.marker = null; shown.delete(f); }
