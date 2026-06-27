@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.10.0';
+const APP_VERSION = '1.10.1';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
@@ -75,7 +75,7 @@ function applyTheme() {
   const dark = isDark();
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', dark ? '#0f1620' : ACCENT);
+  if (meta) meta.setAttribute('content', ACCENT);   // la barra de estado sigue al acento (como la cabecera)
   applyMapTheme();   // el mapa sigue al tema: en oscuro, mapa oscuro
 }
 function applyMapTheme() {
@@ -91,11 +91,8 @@ function applyAccent() {
   ACCENT = a.main; ACCENT_L = a.l;
   const s = document.documentElement.style;
   s.setProperty('--blue', a.main); s.setProperty('--blue-d', a.d); s.setProperty('--blue-l', a.l);
-  if (!isDark()) { const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', a.main); }
-  if (map) {
-    for (const f of shown) if (f.marker) f.marker.setIcon(f === selected ? nearestIcon(f) : fountainIcon(f));
-    if (userMarker) userMarker.setIcon(userIcon());
-  }
+  const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', a.main);
+  if (map) { for (const f of shown) if (f.marker) f.marker.setIcon(f === selected ? nearestIcon(f) : fountainIcon(f)); }
 }
 /* refresca el tema del sistema en vivo si está en modo "sistema" */
 try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (settings.theme === 'system') applyTheme(); }); } catch (_) {}
@@ -314,8 +311,8 @@ function userIcon() {
   return L.divIcon({
     className: '', iconSize: [30, 30], iconAnchor: [15, 15],
     html: `<div class="user-dot"><svg width="30" height="30" viewBox="0 0 30 30">
-      <circle cx="15" cy="15" r="14" fill="${ACCENT}" fill-opacity="0.18"/>
-      <circle cx="15" cy="15" r="7.5" fill="${ACCENT}" stroke="#fff" stroke-width="3.2"/></svg></div>`
+      <circle cx="15" cy="15" r="14" fill="#1f7fe0" fill-opacity="0.18"/>
+      <circle cx="15" cy="15" r="7.5" fill="#1f7fe0" stroke="#fff" stroke-width="3.2"/></svg></div>`
   });
 }
 function dropSvg(w, h, color, inner) {
@@ -484,7 +481,7 @@ function updateFitBtn() {
 function fitZoom() {
   const dist = haversine(userPos.lat, userPos.lon, selected.lat, selected.lon);
   const h = (map.getSize && map.getSize().y) || 500;
-  const mpp = Math.max(dist, 40) / (h * 0.58);     // la distancia ocupa ~0.58 de la altura
+  const mpp = Math.max(dist, 40) / (h * 0.50);     // distancia ~0.50 de la altura: deja margen arriba para la gota
   const z = Math.log2(156543.03 * Math.cos(toRad(userPos.lat)) / mpp);
   return Math.max(13, Math.min(18, z));
 }

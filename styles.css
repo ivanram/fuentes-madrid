@@ -385,3 +385,9 @@ header.bar .iconbtn:active{ opacity:.6; }
   box-shadow:0 1px 4px rgba(0,0,0,.25);transition:box-shadow .15s;
 }
 .swatches button.active{ box-shadow:0 0 0 3px var(--card), 0 0 0 6px var(--sw); }
+
+/* cabecera con el color de acento */
+header.bar{ background:var(--blue); border-bottom:none; }
+header.bar .t{ color:#fff; }
+header.bar .count{ background:rgba(255,255,255,.18); color:#fff; border-color:rgba(255,255,255,.38); }
+header.bar .iconbtn{ color:rgba(255,255,255,.92); }
