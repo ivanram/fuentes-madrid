@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Fuente de agua">
+  <defs>
+    <linearGradient id="g-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3ea8ff"/>
+      <stop offset="1" stop-color="#1f7fe0"/>
+    </linearGradient>
+    <linearGradient id="g-water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#bfe6ff"/>
+      <stop offset="1" stop-color="#7fc8ff"/>
+    </linearGradient>
+  </defs>
+  <!-- rounded badge background -->
+  <rect x="4" y="4" width="112" height="112" rx="28" fill="url(#g-bg)"/>
+  <!-- water arc spouting -->
+  <path d="M60 34 C60 34 78 44 78 56" fill="none" stroke="#eaf6ff" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+  <!-- little drop at top of arc -->
+  <path d="M60 28 c4 5 7 8 7 12 a7 7 0 0 1 -14 0 c0 -4 3 -7 7 -12 z" fill="#eaf6ff"/>
+  <!-- fountain basin (bowl) -->
+  <path d="M34 58 h52 a4 4 0 0 1 4 4 c0 12 -13 18 -30 18 s-30 -6 -30 -18 a4 4 0 0 1 4 -4 z" fill="url(#g-water)"/>
+  <!-- pedestal -->
+  <rect x="52" y="78" width="16" height="20" rx="4" fill="#eaf6ff"/>
+  <!-- base -->
+  <rect x="40" y="96" width="40" height="10" rx="5" fill="#eaf6ff"/>
+  <!-- friendly face on the bowl -->
+  <circle cx="51" cy="64" r="2.6" fill="#1f7fe0"/>
+  <circle cx="69" cy="64" r="2.6" fill="#1f7fe0"/>
+  <path d="M53 69 q7 6 14 0" fill="none" stroke="#1f7fe0" stroke-width="2.6" stroke-linecap="round"/>
+</svg>
