@@ -10,9 +10,22 @@
   <link rel="apple-touch-icon" href="icon-192.png?v=1.5">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer">
-  <link rel="stylesheet" href="styles.css?v=1.12.0">
+  <link rel="stylesheet" href="styles.css?v=1.12.6">
 </head>
 <body>
+  <!-- Filtros "duotone": recolorean el mapa según su luminosidad (no según su
+       saturación original), así el tema Cyberpunk sale igual de vivo sobre
+       cualquier tesela base. Ver MAP_THEMES en themes.js. -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="duotone-cyberpunk" color-interpolation-filters="sRGB">
+      <feColorMatrix type="matrix" values="0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0 0 0 1 0"/>
+      <feComponentTransfer>
+        <feFuncR type="table" tableValues="0.08 0.86 0.42"/>
+        <feFuncG type="table" tableValues="0.0  0.08 0.94"/>
+        <feFuncB type="table" tableValues="0.22 0.75 1.0"/>
+      </feComponentTransfer>
+    </filter>
+  </svg>
 
   <!-- ============ LOADING (arranque silencioso) ============ -->
   <section id="loading">
@@ -37,7 +50,7 @@
       <span data-i18n="btn_allow">Permitir ubicación</span>
     </button>
     <p class="err" id="splashErr"></p>
-    <p class="version" id="appVersion">v1.12.0</p>
+    <p class="version" id="appVersion">v1.12.6</p>
   </section>
 
   <!-- ============ APP ============ -->
@@ -132,7 +145,7 @@
     <p class="desc privacy" data-i18n="privacy1">La ubicación sólo se usa para ajustar el mapa y no se transmite ni guarda en ningún sitio.</p>
     <p class="desc privacy" data-i18n="privacy2">La configuración de fuentes favoritas se guarda de forma local en tu navegador.</p>
     <p class="updated"><span class="dot"></span><span id="updatedText">—</span></p>
-    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.12.0</span></button>
+    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.12.6</span></button>
   </div>
 
   <!-- ============ AJUSTES ============ -->
@@ -229,7 +242,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js" referrerpolicy="no-referrer"></script>
-  <script src="themes.js?v=1.12.0"></script>
-  <script src="app.js?v=1.12.0"></script>
+  <script src="themes.js?v=1.12.6"></script>
+  <script src="app.js?v=1.12.6"></script>
 </body>
 </html>

@@ -20,15 +20,19 @@ const MAP_THEMES = {
                  dark:  { t: 'osm',      f: 'invert(1) hue-rotate(180deg) contrast(.86) brightness(1.08)' } },
   minimalista: { light: { t: 'positron', f: '' },
                  dark:  { t: 'positron', f: 'invert(1) hue-rotate(180deg) contrast(.7) brightness(1.22)' } },
-  /* Cyberpunk: neón morado/magenta/cian. Claro = fondo claro con neón; oscuro = fondo oscuro luminoso. */
-  cyberpunk:   { light: { t: 'voyager',  f: 'saturate(3.4) hue-rotate(265deg) contrast(1.5) brightness(.97)' },
-                 dark:  { t: 'voyager',  f: 'invert(1) hue-rotate(205deg) saturate(4) brightness(1.25) contrast(1.3)' } },
-  /* Colorful: vivo pero menos amarillo (verdes/azules de parques y agua se mantienen). */
-  colorido:    { light: { t: 'voyager',  f: 'saturate(2.1) hue-rotate(-8deg) contrast(1.1)' },
-                 dark:  { t: 'voyager',  f: 'invert(1) hue-rotate(172deg) saturate(2.3) contrast(.9) brightness(1.2)' } },
-  /* Sepia: monocromo amarronado (poca saturación → gris-marrón legible). */
-  sepia:       { light: { t: 'osm',      f: 'sepia(.7) saturate(.55) contrast(1.18) brightness(.99)' },
-                 dark:  { t: 'osm',      f: 'invert(1) hue-rotate(180deg) sepia(.6) saturate(1.3) contrast(.82) brightness(1.12)' } }
+  /* Cyberpunk: recolorea el mapa por luminosidad con un filtro SVG "duotone"
+     (definido en index.html) en vez de solo rotar el tono — así sale igual de
+     vivo/legible sea cual sea la tesela, y el neón solo funciona con fondo
+     oscuro, así que este tema usa siempre la variante oscura. */
+  cyberpunk:   { light: { t: 'osm', f: 'invert(1) contrast(1.1) brightness(1.05) url(#duotone-cyberpunk)' },
+                 dark:  { t: 'osm', f: 'invert(1) contrast(1.15) brightness(1.1) url(#duotone-cyberpunk)' } },
+  /* Colorido: vivo pero legible. La tesela OSM ya tiene color real (agua, parques,
+     edificios), así que basta con realzar saturación en vez de forzar un tinte. */
+  colorido:    { light: { t: 'osm',      f: 'saturate(1.9) contrast(1.08) brightness(1.03)' },
+                 dark:  { t: 'osm',      f: 'invert(1) hue-rotate(180deg) saturate(2.4) contrast(1) brightness(1.1)' } },
+  /* Sepia: monocromo amarronado, con un tono sepia más marcado. */
+  sepia:       { light: { t: 'osm',      f: 'sepia(.75) saturate(.4) contrast(1.12) brightness(1)' },
+                 dark:  { t: 'osm',      f: 'invert(1) hue-rotate(180deg) sepia(.85) saturate(1.5) contrast(.86) brightness(1.05)' } }
 };
 
 /* Paletas de color de acento. */

@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.12.0';
+const APP_VERSION = '1.12.6';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
@@ -161,7 +161,7 @@ function applyMapTheme() {
   tileLayer = L.tileLayer(tile.url, { attribution: ATTRIB, subdomains: tile.sub, maxZoom: 20, detectRetina: true });
   tileLayer.addTo(map); tileLayer.setZIndex(0);
   const el = tileLayer.getContainer && tileLayer.getContainer();
-  if (el) el.style.filter = cfg.f || '';                            // filtro CSS para sepia/cyber/colorido
+  if (el) el.style.filter = cfg.f || '';                            // filtro CSS (+ duotone SVG para cyberpunk)
 }
 function applyAccent() {
   const a = ACCENTS[settings.accent] || ACCENTS.blue;
