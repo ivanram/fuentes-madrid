@@ -5,13 +5,13 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.12.6';
+const APP_VERSION = '1.12.7';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
 const MARKER_CAP = 350;          // máx. marcadores dibujados a la vez (rendimiento)
 const MIN_RADIUS = 70;           // m: evita sobre-acercar si la fuente está pegada
-const HEADING_SMOOTH = 0.07;     // suavizado de la brújula en AR (más bajo = más lento pero ignora saltos)
+const HEADING_SMOOTH = 0.16;     // suavizado de la brújula en AR (más bajo = más lento pero ignora saltos)
 const HEADING_JUMP = 100;        // grados: cambio brusco = ruido del sensor → lo amortiguamos
 
 /* ---------- State ---------- */
@@ -780,24 +780,35 @@ function stopAR() {
   if (arStream) { arStream.getTracks().forEach(t => t.stop()); arStream = null; }
   stopCompass();
 }
+let arAbsoluteSeen = false;      // ¿ya nos llegó un rumbo absoluto (real, no relativo al arranque)?
+let arFallbackTimer = null;
 function startCompass() {
-  window.addEventListener('deviceorientationabsolute', onOrient, true);
-  window.addEventListener('deviceorientation', onOrient, true);
+  arAbsoluteSeen = false;
+  // Preferimos SIEMPRE el evento absoluto (rumbo real). Si en 300ms no llega ninguno
+  // (navegador que no lo soporta, p.ej. iOS Safari), caemos al relativo. Escuchar los
+  // dos a la vez desde el principio hacía que compitieran entre sí y la flecha temblara.
+  window.addEventListener('deviceorientationabsolute', onOrientAbsolute, true);
+  arFallbackTimer = setTimeout(() => {
+    if (!arAbsoluteSeen) window.addEventListener('deviceorientation', onOrient, true);
+  }, 300);
 }
 function stopCompass() {
-  window.removeEventListener('deviceorientationabsolute', onOrient, true);
+  window.removeEventListener('deviceorientationabsolute', onOrientAbsolute, true);
   window.removeEventListener('deviceorientation', onOrient, true);
+  if (arFallbackTimer) { clearTimeout(arFallbackTimer); arFallbackTimer = null; }
+  arAbsoluteSeen = false;
 }
+function onOrientAbsolute(e) { arAbsoluteSeen = true; onOrient(e); }
 function onOrient(e) {
   if (typeof e.beta === 'number') {
     const p = Math.max(0, Math.min(90, e.beta));        // 0 plano (mira al suelo) … 90 vertical
     arPitch = (arPitch == null) ? p : arPitch + 0.10 * (p - arPitch);
   }
-  let h = null;
-  if (typeof e.webkitCompassHeading === 'number') h = e.webkitCompassHeading;
+  let h = null, needsScreenFix = true;
+  if (typeof e.webkitCompassHeading === 'number') { h = e.webkitCompassHeading; needsScreenFix = false; }  // iOS: ya viene corregido a la orientación de pantalla actual
   else if (typeof e.alpha === 'number') h = 360 - e.alpha;
   if (h != null) {
-    const so = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+    const so = needsScreenFix ? ((screen.orientation && screen.orientation.angle) || window.orientation || 0) : 0;
     const raw = (h + so + 360) % 360;
     let alpha = HEADING_SMOOTH;
     if (arHeading != null) {
