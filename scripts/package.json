@@ -1,0 +1,9 @@
+{
+  "name": "fuentes-madrid-build",
+  "private": true,
+  "type": "module",
+  "description": "Regenera fuentes.json desde el CSV oficial del Ayuntamiento de Madrid",
+  "dependencies": {
+    "proj4": "^2.11.0"
+  }
+}
