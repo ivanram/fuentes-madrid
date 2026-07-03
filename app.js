@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.12.7';
+const APP_VERSION = '1.12.8';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
@@ -882,13 +882,21 @@ function reflectUpdate() {
     b.innerHTML = `<span id="aboutVersion">v${APP_VERSION}</span>`;
   }
 }
-function checkForUpdate() {
+function checkForUpdate(auto) {
   fetch('version.json?t=' + Date.now(), { cache: 'no-store' })
     .then(r => (r && r.ok) ? r.json() : null)
     .then(d => {
       if (d && d.version && d.version !== APP_VERSION) {
         updateAvailable = d.version;
         reflectUpdate();
+        // Recién abierta la app: actualiza sola en vez de esperar a que el usuario
+        // entre en "Acerca de" y toque el botón. Una vez por sesión (evita bucles
+        // si version.json tarda en propagarse justo tras publicar).
+        if (auto && !sessionStorage.getItem('fuentes_auto_updated')) {
+          try { sessionStorage.setItem('fuentes_auto_updated', '1'); } catch (_) {}
+          forceUpdate();
+          return;
+        }
         toast(`${t('update_available')} (v${d.version})`);
       }
     })
@@ -941,6 +949,6 @@ window.addEventListener('orientationchange', () => { if (map) setTimeout(() => m
   try { await ensureData(); }
   catch (e) { setUpdated(Date.now(), 0); if ($('updatedText')) $('updatedText').textContent = t('db_error'); }
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
-  setTimeout(checkForUpdate, 2500);   // avisa si hay versión nueva publicada
+  setTimeout(() => checkForUpdate(true), 600);   // comprueba versión y se actualiza sola si toca
   autoStartIfAllowed();
 })();
