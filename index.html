@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="icon-192.png?v=1.5">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer">
-  <link rel="stylesheet" href="styles.css?v=1.12.8">
+  <link rel="stylesheet" href="styles.css?v=1.12.10">
 </head>
 <body>
   <!-- Filtros "duotone": recolorean el mapa según su luminosidad (no según su
@@ -26,6 +26,18 @@
       </feComponentTransfer>
     </filter>
   </svg>
+
+  <!-- ============ FUERA DE MADRID ============ -->
+  <div id="outsideModal">
+    <div class="sad-bear-wrap">
+      <img class="logo" src="icon-192.png?v=1.5" alt="">
+      <span class="tear">💧</span>
+    </div>
+    <h1 data-i18n="outside_title">¡Ups!</h1>
+    <p class="desc" data-i18n="outside_text">No hay ninguna fuente de la zona. Parece que no estás en Madrid o hay algún problema con la base de datos.</p>
+    <button class="btn" id="teleportBtn"><span data-i18n="outside_teleport">Teletransportarme a Madrid</span></button>
+    <button class="dismiss-link" id="outsideDismiss" data-i18n="outside_dismiss">Seguir de todas formas</button>
+  </div>
 
   <!-- ============ LOADING (arranque silencioso) ============ -->
   <section id="loading">
@@ -50,7 +62,7 @@
       <span data-i18n="btn_allow">Permitir ubicación</span>
     </button>
     <p class="err" id="splashErr"></p>
-    <p class="version" id="appVersion">v1.12.8</p>
+    <p class="version" id="appVersion">v1.12.10</p>
   </section>
 
   <!-- ============ APP ============ -->
@@ -61,6 +73,9 @@
       <button class="count" id="count" title="Filtrar fuentes" aria-label="Filtrar fuentes">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
         <span id="countN">—</span>
+      </button>
+      <button class="iconbtn" id="listBtn" title="Ver lista" data-i18n-title="list_title" aria-label="Ver lista">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="4.5" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.2" fill="currentColor" stroke="none"/><path d="M9 6h11M9 12h11M9 18h11"/></svg>
       </button>
       <button class="iconbtn" id="settingsBtn" title="Ajustes" aria-label="Ajustes">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -88,6 +103,9 @@
     <button class="close" id="sheetClose" aria-label="Cerrar">×</button>
     <button class="fav" id="favBtn" aria-label="Marcar como favorita" aria-pressed="false">
       <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+    </button>
+    <button class="fav" id="shareBtn" title="Compartir" data-i18n-title="share" aria-label="Compartir">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5 15.4 6.5M8.6 13.5l6.8 4"/></svg>
     </button>
     <h2 class="name" id="sName">Fuente</h2>
     <p class="addr" id="sAddr"></p>
@@ -133,6 +151,14 @@
     <button class="btn" id="filterApply"><span data-i18n="f_show">Ver</span> <span id="filterCount">—</span> <span data-i18n="f_fountains">fuentes</span></button>
   </div>
 
+  <!-- ============ LIST SHEET ============ -->
+  <div id="listSheet" role="dialog" aria-modal="true" aria-label="Fuentes cercanas">
+    <div class="grip"></div>
+    <button class="close" id="listClose" aria-label="Cerrar">×</button>
+    <h2 class="name" data-i18n="list_h">Fuentes cercanas</h2>
+    <div class="list-scroll" id="listItems"></div>
+  </div>
+
   <!-- ============ ABOUT ============ -->
   <div id="about">
     <button class="close" id="aboutClose" aria-label="Cerrar">×</button>
@@ -145,7 +171,8 @@
     <p class="desc privacy" data-i18n="privacy1">La ubicación sólo se usa para ajustar el mapa y no se transmite ni guarda en ningún sitio.</p>
     <p class="desc privacy" data-i18n="privacy2">La configuración de fuentes favoritas se guarda de forma local en tu navegador.</p>
     <p class="updated"><span class="dot"></span><span id="updatedText">—</span></p>
-    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.12.8</span></button>
+    <a class="report-link" href="https://sede.madrid.es/portal/site/tramites/menuitem.62876cb64654a55e2dbd7003a8a409a0/?vgnextoid=726a492c427c9410VgnVCM2000000c205a0aRCRD&vgnextchannel=7c6aa38813180210VgnVCM100000c90da8c0RCRD&vgnextfmt=default" target="_blank" rel="noopener" data-i18n="report_link">Reportar una fuente estropeada al Ayuntamiento</a>
+    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.12.10</span></button>
   </div>
 
   <!-- ============ AJUSTES ============ -->
@@ -242,7 +269,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js" referrerpolicy="no-referrer"></script>
-  <script src="themes.js?v=1.12.8"></script>
-  <script src="app.js?v=1.12.8"></script>
+  <script src="themes.js?v=1.12.10"></script>
+  <script src="app.js?v=1.12.10"></script>
 </body>
 </html>

@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.12.8';
+const APP_VERSION = '1.12.10';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
@@ -13,6 +13,11 @@ const MARKER_CAP = 350;          // máx. marcadores dibujados a la vez (rendimi
 const MIN_RADIUS = 70;           // m: evita sobre-acercar si la fuente está pegada
 const HEADING_SMOOTH = 0.16;     // suavizado de la brújula en AR (más bajo = más lento pero ignora saltos)
 const HEADING_JUMP = 100;        // grados: cambio brusco = ruido del sensor → lo amortiguamos
+const TRAIL_MIN_DIST = 14;       // m entre puntos de la estela: separados, como un rastro de peli, no un churro
+const MAP_HEADING_SMOOTH = 0.045; // suavizado del modo brújula del mapa: prioriza calma sobre precisión
+const MAP_BEARING_THROTTLE = 200; // ms mínimos entre giros del mapa en modo brújula (evita trabajo de más)
+const OUTSIDE_MADRID_KM = 20;     // si la fuente más cercana está más lejos que esto, probablemente no estás en Madrid
+const MADRID_SOL = { lat: 40.4168, lon: -3.7038 };
 
 /* ---------- State ---------- */
 let map, userMarker, accCircle, fountainLayer;
@@ -61,6 +66,12 @@ const I18N = {
     route: 'Ruta andando', ar_view: 'Ver con AR', f_estado: 'Estado', f_oper: 'Solo fuentes operativas',
     f_fav: 'Solo favoritas ❤️', f_who: '¿Para quién?', f_all: 'Todas', f_people: 'Personas', f_dogs: 'Perros 🐾',
     f_show: 'Ver', f_fountains: 'fuentes',
+    share: 'Compartir', share_msg: 'Fuente de agua potable en Madrid', share_copied: 'Enlace copiado ✓',
+    list_title: 'Ver lista', list_h: 'Fuentes cercanas', list_empty: 'No hay fuentes con estos filtros.',
+    compass_mode: 'Modo brújula',
+    report_link: 'Reportar una fuente estropeada al Ayuntamiento',
+    outside_title: '¡Ups!', outside_text: 'No hay ninguna fuente de la zona. Parece que no estás en Madrid o hay algún problema con la base de datos.',
+    outside_teleport: 'Teletransportarme a Madrid', outside_dismiss: 'Seguir de todas formas',
     about_desc: 'Datos oficiales del <a href="https://datos.madrid.es/dataset/300051-0-fuentes" target="_blank" rel="noopener">Ayuntamiento de Madrid</a> (CC BY 4.0).',
     set_idioma: 'Idioma', lang_auto: 'Automático', lang_es: 'Español', lang_en: 'Inglés',
     set_tema: 'Tema', set_claro: 'Claro', set_oscuro: 'Oscuro', set_sistema: 'Sistema', set_color: 'Color de acento',
@@ -95,6 +106,12 @@ const I18N = {
     route: 'Walking route', ar_view: 'View in AR', f_estado: 'Status', f_oper: 'Working fountains only',
     f_fav: 'Favourites only ❤️', f_who: 'For whom?', f_all: 'All', f_people: 'People', f_dogs: 'Dogs 🐾',
     f_show: 'Show', f_fountains: 'fountains',
+    share: 'Share', share_msg: 'Drinking fountain in Madrid', share_copied: 'Link copied ✓',
+    list_title: 'View list', list_h: 'Nearby fountains', list_empty: 'No fountains match these filters.',
+    compass_mode: 'Compass mode',
+    report_link: 'Report a broken fountain to the City Council',
+    outside_title: 'Uh-oh!', outside_text: "No fountains found nearby. Looks like you're not in Madrid, or there's a problem with the database.",
+    outside_teleport: 'Teleport me to Madrid', outside_dismiss: 'Continue anyway',
     about_desc: 'Official data from the <a href="https://datos.madrid.es/dataset/300051-0-fuentes" target="_blank" rel="noopener">City of Madrid</a> (CC BY 4.0).',
     set_idioma: 'Language', lang_auto: 'Automatic', lang_es: 'Spanish', lang_en: 'English',
     set_tema: 'Theme', set_claro: 'Light', set_oscuro: 'Dark', set_sistema: 'System', set_color: 'Accent colour',
@@ -131,6 +148,10 @@ function applyI18n() {
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const k = el.getAttribute('data-i18n');
     if (I18N[L][k] != null) { if (/[<&]/.test(I18N[L][k])) el.innerHTML = I18N[L][k]; else el.textContent = I18N[L][k]; }
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const k = el.getAttribute('data-i18n-title');
+    if (I18N[L][k] != null) el.title = I18N[L][k];
   });
 }
 
@@ -184,11 +205,11 @@ function startTrail() {
   if (!trailLayer) trailLayer = L.layerGroup().addTo(map);
   if (trailTimer) { clearInterval(trailTimer); trailTimer = null; }
   if (!settings.trailOn) { clearTrailLayer(); return; }
-  trailTimer = setInterval(sampleTrail, 3000);   // andamos despacio: cada 3 s basta
+  trailTimer = setInterval(sampleTrail, 4000);   // comprobamos cada 4 s; quien manda es la distancia mínima
 }
 function sampleTrail() {
   if (!settings.trailOn || !userPos || !map) return;
-  if (lastTrailPos && haversine(lastTrailPos.lat, lastTrailPos.lon, userPos.lat, userPos.lon) < 4) return;   // no te has movido
+  if (lastTrailPos && haversine(lastTrailPos.lat, lastTrailPos.lon, userPos.lat, userPos.lon) < TRAIL_MIN_DIST) return;   // no te has alejado lo suficiente
   trail.unshift({ lat: userPos.lat, lon: userPos.lon });
   lastTrailPos = { lat: userPos.lat, lon: userPos.lon };
   if (trail.length > trailMax()) trail.length = trailMax();
@@ -250,8 +271,10 @@ applyAccent();   // color de acento (variables CSS)
 applyTheme();    // tema cuanto antes (evita parpadeo)
 
 /* orientación del mapa */
-let mapMode = 'north';           // north | free
+let mapMode = 'north';           // north | free | compass
 let programmaticBearing = false;
+let mapHeading = null;           // brújula suavizada para el modo brújula del mapa (deg)
+let lastMapBearingUpdate = 0;
 
 /* AR */
 let arHeading = null;            // brújula suavizada (deg)
@@ -329,7 +352,18 @@ function setUpdated(ms, n) {
 /* ============================================================
    ARRANQUE: salta la splash si ya hay permiso de ubicación
    ============================================================ */
+/* ?fakeloc=lat,lon — para probar la app (p.ej. el aviso de "fuera de Madrid")
+   sin moverte de sitio ni tocar la ubicación real del móvil. Solo de pruebas. */
+function fakeLocationFromUrl() {
+  const m = location.search.match(/[?&]fakeloc=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (!m) return null;
+  const lat = parseFloat(m[1]), lon = parseFloat(m[2]);
+  if (!isFinite(lat) || !isFinite(lon)) return null;
+  return { lat, lon, acc: 20 };
+}
 async function autoStartIfAllowed() {
+  const fake = fakeLocationFromUrl();
+  if (fake) { userPos = fake; startApp(); return; }
   let granted = false;
   try {
     if (navigator.permissions && navigator.permissions.query) {
@@ -350,6 +384,8 @@ async function autoStartIfAllowed() {
 
 $('askLocation').addEventListener('click', requestLocation);
 function requestLocation() {
+  const fake = fakeLocationFromUrl();
+  if (fake) { userPos = fake; startApp(); return; }
   if (!('geolocation' in navigator)) { $('splashErr').textContent = t('no_geo'); return; }
   const btn = $('askLocation');
   btn.disabled = true;
@@ -382,7 +418,30 @@ async function startApp() {
   $('app').style.display = 'flex';
   initMap();
   watchPosition();
+  checkOutsideMadrid();
 }
+
+/* ---------- Aviso "fuera de Madrid" ---------- */
+function nearestDistanceKm(lat, lon) {
+  let best = Infinity;
+  for (const f of allFountains) { const d = haversine(lat, lon, f.lat, f.lon); if (d < best) best = d; }
+  return best / 1000;
+}
+function checkOutsideMadrid() {
+  if (!userPos || !allFountains.length) return;
+  if (nearestDistanceKm(userPos.lat, userPos.lon) > OUTSIDE_MADRID_KM) $('outsideModal').style.display = 'flex';
+}
+$('teleportBtn').addEventListener('click', () => {
+  userPos = { lat: MADRID_SOL.lat, lon: MADRID_SOL.lon, acc: 20 };
+  $('outsideModal').style.display = 'none';
+  if (userMarker) userMarker.setLatLng([userPos.lat, userPos.lon]);
+  if (accCircle) { accCircle.setLatLng([userPos.lat, userPos.lon]); accCircle.setRadius(userPos.acc); }
+  lastRecomputePos = null;
+  recomputeDistances();
+  renderMarkers();
+  fitInitialView();
+});
+$('outsideDismiss').addEventListener('click', () => { $('outsideModal').style.display = 'none'; });
 
 /* ---------- Panel "Acerca de" (al tocar el título) ---------- */
 $('aboutBtn').addEventListener('click', () => { $('about').classList.add('open'); checkForUpdate(); });
@@ -420,6 +479,37 @@ function openFilters() {
   $('filterSheet').classList.add('open');
 }
 function closeFilters() { $('filterSheet').classList.remove('open'); fitInitialView(); }
+
+/* ============================================================
+   LIST (fuentes cercanas, ordenadas por distancia)
+   ============================================================ */
+const LIST_CAP = 200;   // suficiente para "cercanas"; más allá no aporta y castiga el render
+function rowIcon(f) { return isFav(f) ? '❤️' : (isDog(f) ? '🐾' : '💧'); }
+function renderListItems() {
+  const wrap = $('listItems');
+  if (!fountains.length) { wrap.innerHTML = `<p class="list-empty">${t('list_empty')}</p>`; return; }
+  wrap.innerHTML = fountains.slice(0, LIST_CAP).map((f, i) => {
+    const p = f.props;
+    const addr = [p.DIRECCION, p.DISTRITO].filter(Boolean).join(' — ') || t('fountain_water');
+    return `<button class="list-row" data-i="${i}">
+      <span class="list-ico">${rowIcon(f)}</span>
+      <span class="list-txt"><span class="list-name">${addr}</span></span>
+      <span class="list-dist">${fmtDist(f.dist)}</span>
+    </button>`;
+  }).join('');
+}
+function openList() { renderListItems(); $('listSheet').classList.add('open'); }
+function closeList() { $('listSheet').classList.remove('open'); }
+$('listBtn').addEventListener('click', openList);
+$('listClose').addEventListener('click', closeList);
+$('listItems').addEventListener('click', (e) => {
+  const btn = e.target.closest('.list-row'); if (!btn) return;
+  const f = fountains[parseInt(btn.dataset.i, 10)];
+  if (!f) return;
+  closeList();
+  map.setView([f.lat, f.lon], 17, { animate: true });
+  openSheet(f);
+});
 
 /* ============================================================
    MAP
@@ -488,7 +578,7 @@ function initMap() {
   map.on('moveend zoomend', debounce(renderMarkers, 90));
   map.on('rotate', onMapRotate);
   map.on('rotateend', updateModeButton);
-  map.on('click', () => { closeSheet(); $('filterSheet').classList.remove('open'); });   // tocar fuera cierra los paneles
+  map.on('click', () => { closeSheet(); $('filterSheet').classList.remove('open'); closeList(); });   // tocar fuera cierra los paneles
 
   $('recenter').addEventListener('click', () => { if (userPos) map.setView([userPos.lat, userPos.lon], 16, { animate: true }); });
   $('mapMode').addEventListener('click', onModeButton);
@@ -496,7 +586,28 @@ function initMap() {
 
   startTrail();      // estela de ubicación
   restoreTarget();   // recupera la última fuente seleccionada (persistente)
-  requestAnimationFrame(() => { map.invalidateSize(); fitInitialView(); renderMarkers(); updateModeButton(); updateFitBtn(); });
+  requestAnimationFrame(() => {
+    map.invalidateSize();
+    if (!openSharedFountainIfAny()) fitInitialView();   // un enlace compartido manda sobre la vista inicial
+    renderMarkers(); updateModeButton(); updateFitBtn();
+  });
+}
+
+/* ---------- abrir una fuente compartida por enlace (?f=lat,lon) ---------- */
+function openSharedFountainIfAny() {
+  const m = location.search.match(/[?&]f=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+  if (!m) return false;
+  const lat = parseFloat(m[1]), lon = parseFloat(m[2]);
+  if (!isFinite(lat) || !isFinite(lon)) return false;
+  let best = null, bestD = Infinity;
+  for (const f of allFountains) {
+    const d = haversine(lat, lon, f.lat, f.lon);
+    if (d < bestD) { bestD = d; best = f; }
+  }
+  if (!best || bestD > 30) return false;   // 30 m de margen por redondeo del enlace
+  map.setView([best.lat, best.lon], 18, { animate: false });
+  openSheet(best);
+  return true;
 }
 
 /* ---------- marcadores: solo lo visible, con tope ---------- */
@@ -583,21 +694,51 @@ function setBearingSafe(deg) {
   map.setBearing(deg);
   setTimeout(() => { programmaticBearing = false; }, 80);
 }
-function setMode(m) {
+/* Modo brújula: el mapa gira sobre la marcha para que "arriba" sea hacia donde
+   apunta el móvil (como la navegación turn-by-turn). leaflet-rotate no documenta
+   si su bearing crece en el mismo sentido que el rumbo geográfico, así que lo
+   calibramos una vez girando un poco y midiendo el efecto (mismo truco que ya
+   usaba fitUserAndFountain para acertar el sentido de giro). */
+let mapBearingSign = null;
+function calibrateBearingSign() {
+  if (!map || !map.setBearing || !map.getBearing) { mapBearingSign = 1; return; }
+  const c = map.getCenter();
+  const topBearing = () => {
+    const p = map.latLngToContainerPoint(c);
+    const g = map.containerPointToLatLng({ x: p.x, y: p.y - 100 });
+    return bearing(c.lat, c.lng, g.lat, g.lng);   // rumbo geográfico de "arriba" en pantalla
+  };
+  programmaticBearing = true;
+  const b0 = map.getBearing(), a0 = topBearing();
+  map.setBearing(b0 + 20);
+  const a1 = topBearing();
+  map.setBearing(b0);
+  programmaticBearing = false;
+  const d = ((a1 - a0 + 540) % 360) - 180;
+  mapBearingSign = d >= 0 ? 1 : -1;
+}
+function setMapModeInternal(m) {
+  if (mapMode === 'compass' && m !== 'compass') releaseCompass();
+  if (mapMode !== 'compass' && m === 'compass') { if (mapBearingSign == null) calibrateBearingSign(); mapHeading = null; acquireCompass(); }
   mapMode = m;
+}
+function setMode(m) {
+  setMapModeInternal(m);
   if (m === 'north') { setBearingSafe(0); toast(t('north')); }
+  else if (m === 'compass') toast(t('compass_mode'));
   updateModeButton();
 }
-function onModeButton() { setMode('north'); }   // el botón SOLO activa Norte arriba (si ya lo está, no hace nada visible)
+function onModeButton() { setMode(mapMode === 'compass' ? 'north' : 'compass'); }   // alterna Norte arriba ⇄ Brújula
 function onMapRotate() {
-  if (!programmaticBearing && mapMode !== 'free') { mapMode = 'free'; toast(t('free')); }   // girar a mano = modo libre
+  if (!programmaticBearing && mapMode !== 'free') { setMapModeInternal('free'); toast(t('free')); }   // girar a mano = modo libre
   updateModeButton();
 }
 function updateModeButton() {
   const btn = $('mapMode'); if (!btn) return;
   const brg = (map && map.getBearing) ? map.getBearing() : 0;
   const needle = btn.querySelector('.needle');
-  if (needle) needle.style.transform = `rotate(${-brg}deg)`;   // la aguja indica la orientación; el botón nunca se resalta
+  if (needle) needle.style.transform = `rotate(${-brg}deg)`;   // la aguja indica la orientación
+  btn.classList.toggle('active', mapMode === 'compass');
 }
 
 /* ============================================================
@@ -634,7 +775,7 @@ function fitUserAndFountain() {
     let err = -90 - ang(); err = ((err + 540) % 360) - 180;            // -90 = arriba
     map.setBearing(map.getBearing() + err / k);
     setTimeout(() => { programmaticBearing = false; }, 150);
-    mapMode = 'free';
+    setMapModeInternal('free');
   }
   // 3) bajo la vista: quedo abajo-centro y la fuente sube, quedando arriba-centro
   const size = map.getSize();
@@ -646,14 +787,21 @@ function fitUserAndFountain() {
 /* ============================================================
    LIVE position tracking
    ============================================================ */
+let lastRecomputePos = null;
 function watchPosition() {
+  if (fakeLocationFromUrl()) return;   // ubicación simulada: no la pisamos con el GPS real
   if (geoWatchId != null) return;
   geoWatchId = navigator.geolocation.watchPosition(
     (pos) => {
       userPos = posToObj(pos);
       if (userMarker) userMarker.setLatLng([userPos.lat, userPos.lon]);
       if (accCircle) { accCircle.setLatLng([userPos.lat, userPos.lon]); accCircle.setRadius(userPos.acc || 30); }
-      recomputeDistances();
+      // el GPS reporta ruido de pocos metros aunque estés parado: si apenas te has
+      // movido, no merece la pena recalcular y reordenar todas las distancias.
+      if (!lastRecomputePos || haversine(lastRecomputePos.lat, lastRecomputePos.lon, userPos.lat, userPos.lon) >= 3) {
+        lastRecomputePos = { lat: userPos.lat, lon: userPos.lon };
+        recomputeDistances();
+      }
       if (selected && $('sheet').classList.contains('open')) updateSheetDistance();
       if ($('ar').style.display === 'block') updateAR();
     },
@@ -738,6 +886,20 @@ $('favBtn').addEventListener('click', () => {
   if (filters.favOnly) { applyFilters(); renderMarkers(); }
 });
 
+$('shareBtn').addEventListener('click', async () => {
+  if (!selected) return;
+  const p = selected.props;
+  const addr = [p.DIRECCION, p.DIRECCION_AUX].filter(Boolean).join(' · ');
+  const url = `${location.origin}${location.pathname}?f=${selected.lat.toFixed(5)},${selected.lon.toFixed(5)}`;
+  const text = [t('share_msg'), addr].filter(Boolean).join(' — ');
+  if (navigator.share) {
+    try { await navigator.share({ title: t('share_msg'), text, url }); } catch (_) {}   // el usuario cancela → no hacemos nada
+  } else {
+    try { await navigator.clipboard.writeText(url); toast(t('share_copied')); }
+    catch (_) { toast(url); }
+  }
+});
+
 $('btnRoute').addEventListener('click', () => {
   if (!selected || !userPos) return;
   const d = selected, u = userPos;
@@ -771,15 +933,20 @@ async function startAR() {
   $('ar').style.display = 'block';
   $('arName').textContent = $('sName').textContent;
   arHeading = null; arPitch = null;
-  startCompass();
+  acquireCompass();
   updateAR();
 }
 function stopAR() {
   $('ar').style.display = 'none';
   $('arTarget').style.display = 'none';
   if (arStream) { arStream.getTracks().forEach(t => t.stop()); arStream = null; }
-  stopCompass();
+  releaseCompass();
 }
+/* AR y el modo brújula del mapa comparten el mismo listener de orientación;
+   solo lo paramos cuando ninguno de los dos lo necesita ya. */
+let compassUsers = 0;
+function acquireCompass() { compassUsers++; if (compassUsers === 1) startCompass(); }
+function releaseCompass() { compassUsers = Math.max(0, compassUsers - 1); if (compassUsers === 0) stopCompass(); }
 let arAbsoluteSeen = false;      // ¿ya nos llegó un rumbo absoluto (real, no relativo al arranque)?
 let arFallbackTimer = null;
 function startCompass() {
@@ -816,6 +983,15 @@ function onOrient(e) {
       if (delta > HEADING_JUMP) alpha = HEADING_SMOOTH * 0.2;   // salto brusco → casi lo ignoramos (anti-glitch)
     }
     arHeading = smoothAngle(arHeading, raw, alpha);            // filtro de paso bajo
+
+    if (mapMode === 'compass') {
+      mapHeading = smoothAngle(mapHeading, raw, MAP_HEADING_SMOOTH);   // muy suave: nada de mareos
+      const now = Date.now();
+      if (now - lastMapBearingUpdate > MAP_BEARING_THROTTLE) {
+        lastMapBearingUpdate = now;
+        setBearingSafe(mapBearingSign * mapHeading);
+      }
+    }
   }
   updateAR();
 }
