@@ -2,7 +2,7 @@ name: Actualizar fuentes de Madrid
 
 on:
   schedule:
-    - cron: '0 4 * * 1'      # cada lunes a las 04:00 UTC
+    - cron: '0 4 * * *'      # todos los días a las 04:00 UTC
   workflow_dispatch: {}       # permite ejecutarlo a mano desde la pestaña Actions
 
 permissions:
