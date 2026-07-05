@@ -126,6 +126,7 @@ footer.bar .refresh-link:active{opacity:.6}
 #sheet .name{font-size:1.18rem;font-weight:700;margin:0 0 4px;letter-spacing:-.01em}
 #sheet .addr{color:var(--muted);margin:0 0 14px;line-height:1.4}
 #sheet .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+#sheet .visit-info{margin:-10px 0 18px;font-size:.84rem;color:var(--muted)}
 .chip{
   display:inline-flex;align-items:center;gap:7px;
   background:var(--bg);border:1px solid var(--line);
@@ -225,6 +226,12 @@ header.bar .count svg{width:15px;height:15px}
   position:absolute;top:12px;right:14px;border:none;background:var(--bg);
   width:34px;height:34px;border-radius:50%;cursor:pointer;color:var(--muted);font-size:1.1rem;
 }
+.list-search{
+  flex:0 0 auto;width:100%;border:1px solid var(--line);background:var(--bg);
+  border-radius:12px;padding:11px 14px;font-size:.96rem;color:var(--ink);margin-bottom:8px;
+  -webkit-appearance:none;appearance:none;
+}
+.list-search:focus{outline:none;border-color:var(--blue)}
 .list-scroll{overflow-y:auto;flex:1;margin:0 -20px;padding:0 20px}
 .list-row{
   display:flex;align-items:center;gap:12px;width:100%;border:none;background:none;
@@ -288,6 +295,15 @@ header.bar .t{
 header.bar .t:active{opacity:.6}
 
 /* ---------- Map control buttons (stacked, bottom-right) ---------- */
+#emptyState{
+  position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);z-index:500;
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+  max-width:280px;padding:24px;background:var(--card);border-radius:20px;box-shadow:var(--shadow);
+}
+#emptyState .logo{width:56px;height:56px;border-radius:16px;margin-bottom:12px}
+#emptyState h2{font-size:1.1rem;margin:0 0 6px;letter-spacing:-.01em}
+#emptyState p{color:var(--muted);font-size:.9rem;margin:0 0 16px;line-height:1.4}
+#emptyState .btn{padding:11px 20px;font-size:.92rem}
 .mapctl{
   position:absolute;right:14px;z-index:600;
   width:50px;height:50px;border-radius:50%;border:none;cursor:pointer;
@@ -389,6 +405,17 @@ header.bar .t:active{opacity:.6}
 #ar .ar-target-d{
   margin-top:3px;background:rgba(15,31,51,.72);color:#fff;font-weight:700;font-size:.84rem;
   padding:3px 10px;border-radius:999px;backdrop-filter:blur(4px);
+}
+/* radar: otras fuentes cercanas, más pequeñas/tenues que la seleccionada */
+#arRadar{position:absolute;inset:0;z-index:3;pointer-events:none}
+.ar-radar-pin{
+  position:absolute;top:38%;transform:translate(-50%,-50%);display:none;flex-direction:column;align-items:center;
+  transition:left .35s ease-out;opacity:.7;cursor:pointer;pointer-events:auto;
+}
+.ar-radar-pin svg{width:30px;height:37px;filter:drop-shadow(0 3px 7px rgba(0,0,0,.5))}
+.ar-radar-pin .ar-radar-d{
+  margin-top:2px;background:rgba(15,31,51,.6);color:#fff;font-weight:700;font-size:.7rem;
+  padding:2px 7px;border-radius:999px;backdrop-filter:blur(3px);white-space:nowrap;
 }
 
 /* ============================================================

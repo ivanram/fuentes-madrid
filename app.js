@@ -5,10 +5,11 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.12.13';
+const APP_VERSION = '1.12.14';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const SHEET_OPEN_KEY = 'fuentes_sheet_open_v1';
+const VISITS_KEY = 'fuentes_visits_v1';
 const VIEW_KEY = 'fuentes_view_v1';
 const FILTERS_KEY = 'fuentes_filters_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
@@ -49,6 +50,30 @@ function toggleFav(f) {
   return favs.has(k);
 }
 
+/* fuentes visitadas: nº de veces + fecha de la última, guardado en el móvil */
+const VISIT_RADIUS_M = 15;             // hay que estar a menos de esto para que cuente como visita
+const VISIT_COOLDOWN_MS = 30 * 60 * 1000;   // no cuentes otra visita si sigues junto a la misma fuente
+let visits = {};
+try { visits = JSON.parse(localStorage.getItem(VISITS_KEY) || '{}'); } catch (_) {}
+function saveVisits() { try { localStorage.setItem(VISITS_KEY, JSON.stringify(visits)); } catch (_) {} }
+function checkVisits() {
+  const now = Date.now();
+  let changed = false;
+  for (const f of fountains) {   // `fountains` va ordenado por cercanía: en cuanto nos pasamos del radio, ya no hay más
+    if (f.dist == null || f.dist > VISIT_RADIUS_M) break;
+    const key = favKey(f);
+    const v = visits[key];
+    if (!v || (now - v.last) > VISIT_COOLDOWN_MS) {
+      visits[key] = { count: (v ? v.count : 0) + 1, last: now };
+      changed = true;
+    }
+  }
+  if (changed) {
+    saveVisits();
+    if (selected && $('sheet').classList.contains('open')) renderVisitInfo(selected);
+  }
+}
+
 /* ============================================================
    AJUSTES (tema, tema de mapa, import/export) — persistentes
    ============================================================ */
@@ -78,6 +103,9 @@ const I18N = {
     donate: 'Invítame a un café',
     outside_title: '¡Ups!', outside_text: 'No hay ninguna fuente de la zona. Parece que no estás en Madrid o hay algún problema con la base de datos.',
     outside_teleport: 'Teletransportarme a Madrid', outside_dismiss: 'Seguir de todas formas',
+    visit_once: 'La visitaste 1 vez, el', visit_many: 'La visitaste {n} veces, la última el',
+    empty_h: 'Nada por aquí', empty_text: 'Ningún resultado con estos filtros. Prueba a quitar alguno.', empty_clear: 'Quitar filtros',
+    search_ph: 'Buscar calle, barrio…',
     about_desc: 'Datos oficiales del <a href="https://datos.madrid.es/dataset/300051-0-fuentes" target="_blank" rel="noopener">Ayuntamiento de Madrid</a> (CC BY 4.0).',
     set_idioma: 'Idioma', lang_auto: 'Automático', lang_es: 'Español', lang_en: 'Inglés',
     set_tema: 'Tema', set_claro: 'Claro', set_oscuro: 'Oscuro', set_sistema: 'Sistema', set_color: 'Color de acento',
@@ -95,8 +123,8 @@ const I18N = {
     err_locate: 'No hemos podido obtener tu ubicación. Inténtalo de nuevo.',
     err_load: 'No se pudieron cargar las fuentes. Recarga la página e inténtalo de nuevo.',
     searching: 'Buscando tu posición…', retry: 'Reintentar', no_geo: 'Tu navegador no permite geolocalización.',
-    fountain: 'Fuente', fountain_water: 'Fuente de agua', operative: 'Operativa', out_service: 'Sin servicio',
-    use_people: 'Para personas', use_dogs: 'Para perros', use_both: 'Personas y perros', use_unknown: 'Uso no especificado',
+    fountain: 'Fuente', fountain_water: 'Fuente de agua', operative: 'Operativa', out_service: 'Averiada',
+    use_people: 'Personas', use_dogs: 'Perros', use_both: 'Mixta', use_unknown: 'Uso no especificado',
     ar_almost: '¡Ya casi!', ar_steps: 'La fuente está a unos pasos de ti',
     ar_cal: 'Mueve el móvil en forma de 8 para calibrar la brújula', ar_lift: 'Levanta el móvil para ver la fuente',
     ar_follow: 'Sigue el icono o la flecha', ar_cam_no: 'Tu navegador no permite usar la cámara para AR.',
@@ -119,6 +147,9 @@ const I18N = {
     donate: 'Buy me a coffee',
     outside_title: 'Uh-oh!', outside_text: "No fountains found nearby. Looks like you're not in Madrid, or there's a problem with the database.",
     outside_teleport: 'Teleport me to Madrid', outside_dismiss: 'Continue anyway',
+    visit_once: "You've visited it once, on", visit_many: "You've visited it {n} times, last on",
+    empty_h: 'Nothing here', empty_text: 'No results with these filters. Try removing one.', empty_clear: 'Clear filters',
+    search_ph: 'Search street, area…',
     about_desc: 'Official data from the <a href="https://datos.madrid.es/dataset/300051-0-fuentes" target="_blank" rel="noopener">City of Madrid</a> (CC BY 4.0).',
     set_idioma: 'Language', lang_auto: 'Automatic', lang_es: 'Spanish', lang_en: 'English',
     set_tema: 'Theme', set_claro: 'Light', set_oscuro: 'Dark', set_sistema: 'System', set_color: 'Accent colour',
@@ -136,8 +167,8 @@ const I18N = {
     err_locate: "We couldn't get your location. Try again.",
     err_load: "Couldn't load the fountains. Reload the page and try again.",
     searching: 'Finding your position…', retry: 'Retry', no_geo: "Your browser doesn't support geolocation.",
-    fountain: 'Fountain', fountain_water: 'Drinking fountain', operative: 'Working', out_service: 'Out of service',
-    use_people: 'For people', use_dogs: 'For dogs', use_both: 'People and dogs', use_unknown: 'Unspecified use',
+    fountain: 'Fountain', fountain_water: 'Drinking fountain', operative: 'Working', out_service: 'Out of order',
+    use_people: 'People', use_dogs: 'Dogs', use_both: 'Mixed', use_unknown: 'Unspecified use',
     ar_almost: 'Almost there!', ar_steps: 'The fountain is a few steps away',
     ar_cal: 'Move your phone in a figure 8 to calibrate the compass', ar_lift: 'Lift your phone to see the fountain',
     ar_follow: 'Follow the icon or the arrow', ar_cam_no: "Your browser can't use the camera for AR.",
@@ -159,6 +190,10 @@ function applyI18n() {
   document.querySelectorAll('[data-i18n-title]').forEach(el => {
     const k = el.getAttribute('data-i18n-title');
     if (I18N[L][k] != null) el.title = I18N[L][k];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const k = el.getAttribute('data-i18n-placeholder');
+    if (I18N[L][k] != null) el.placeholder = I18N[L][k];
   });
 }
 
@@ -186,7 +221,10 @@ function applyMapTheme() {
   const cfg = isDark() ? theme.dark : theme.light;                  // claro u oscuro según el tema de la app
   const tile = TILES[cfg.t] || TILES.voyager;
   if (tileLayer) map.removeLayer(tileLayer);
-  tileLayer = L.tileLayer(tile.url, { attribution: ATTRIB, subdomains: tile.sub, maxZoom: 20, detectRetina: true });
+  tileLayer = L.tileLayer(tile.url, {
+    attribution: ATTRIB, subdomains: tile.sub, maxZoom: 20, detectRetina: true,
+    keepBuffer: 6   // más colchón de teselas precargadas alrededor: al girar en modo brújula, las esquinas nuevas ya suelen estar ahí
+  });
   tileLayer.addTo(map); tileLayer.setZIndex(0);
   const el = tileLayer.getContainer && tileLayer.getContainer();
   if (el) el.style.filter = cfg.f || '';                            // filtro CSS (+ duotone SVG para cyberpunk)
@@ -239,7 +277,10 @@ function renderTrail() {
 try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (settings.theme === 'system') applyTheme(); }); } catch (_) {}
 
 function exportData() {
-  const data = { v: 1, favs: [...favs], settings: settings, target: (function () { try { return localStorage.getItem(TARGET_KEY) || ''; } catch (_) { return ''; } })() };
+  const data = {
+    v: 2, favs: [...favs], settings: settings, visits: visits,
+    target: (function () { try { return localStorage.getItem(TARGET_KEY) || ''; } catch (_) { return ''; } })()
+  };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.download = 'fuentes-madrid-config.json'; a.click();
@@ -253,6 +294,7 @@ function importData(file) {
       const d = JSON.parse(r.result);
       if (Array.isArray(d.favs)) { favs = new Set(d.favs); saveFavs(); }
       if (d.settings && typeof d.settings === 'object') { settings = Object.assign(settings, d.settings); saveSettings(); applyTheme(); applyMapTheme(); }
+      if (d.visits && typeof d.visits === 'object') { visits = d.visits; saveVisits(); }
       if (typeof d.target === 'string') { try { localStorage.setItem(TARGET_KEY, d.target); } catch (_) {} }
       if (map) { for (const f of shown) if (f.marker) f.marker.setIcon(f === selected ? nearestIcon(f) : fountainIcon(f)); applyFilters(); renderMarkers(); }
       syncSettingsUI();
@@ -288,6 +330,7 @@ let headingConeEl = null;        // "foco" de orientación sobre el punto azul (
 /* AR */
 let arHeading = null;            // brújula suavizada (deg)
 let arPitch = null;              // inclinación del móvil suavizada (0 plano … 90 vertical)
+let arArrivedVibrated = false;   // para vibrar solo una vez al llegar, no en cada frame
 
 /* ---------- Helpers ---------- */
 const $ = (id) => document.getElementById(id);
@@ -315,6 +358,11 @@ function smoothAngle(cur, target, alpha) {
 function fmtDist(m) {
   if (m == null) return '';
   return m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(m < 10000 ? 1 : 0)} km`;
+}
+function fmtWalkMin(m) {
+  if (m == null) return '';
+  const min = Math.round(m / 80);   // ritmo de paseo, ~80 m/min
+  return min < 1 ? '<1 min' : `${min} min`;
 }
 function titleCase(s) {
   if (!s) return '';
@@ -472,7 +520,12 @@ function applyFilters() {
   recomputeDistances();
   if ($('countN')) $('countN').textContent = `${fountains.length}`;
   if ($('filterCount')) $('filterCount').textContent = fountains.length;
+  if ($('emptyState')) $('emptyState').style.display = fountains.length ? 'none' : 'flex';
 }
+if ($('emptyClearBtn')) $('emptyClearBtn').addEventListener('click', () => {
+  filters.operativeOnly = true; filters.favOnly = false; filters.uso = 'todas';   // vuelve al filtro de fábrica, no a "todo sin filtrar"
+  saveFilters(); applyFilters(); renderMarkers(); fitInitialView();
+});
 function readFilterUI() {
   filters.operativeOnly = $('fOper').checked;
   filters.favOnly = $('fFav').checked;
@@ -495,26 +548,38 @@ function closeFilters() { $('filterSheet').classList.remove('open'); fitInitialV
    ============================================================ */
 const LIST_CAP = 200;   // suficiente para "cercanas"; más allá no aporta y castiga el render
 function rowIcon(f) { return isFav(f) ? '❤️' : (isDog(f) ? '🐾' : '💧'); }
+function normalizeSearch(s) { return (s || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase(); }
+let listQuery = '';
 function renderListItems() {
   const wrap = $('listItems');
-  if (!fountains.length) { wrap.innerHTML = `<p class="list-empty">${t('list_empty')}</p>`; return; }
-  wrap.innerHTML = fountains.slice(0, LIST_CAP).map((f, i) => {
+  const q = normalizeSearch(listQuery);
+  const list = q
+    ? fountains.filter(f => normalizeSearch([f.props.DIRECCION, f.props.BARRIO, f.props.DISTRITO].join(' ')).includes(q))
+    : fountains;
+  if (!list.length) { wrap.innerHTML = `<p class="list-empty">${t('list_empty')}</p>`; return; }
+  wrap.innerHTML = list.slice(0, LIST_CAP).map((f) => {
     const p = f.props;
     const addr = [p.DIRECCION, p.DISTRITO].filter(Boolean).join(' — ') || t('fountain_water');
-    return `<button class="list-row" data-i="${i}">
+    return `<button class="list-row" data-k="${favKey(f)}">
       <span class="list-ico">${rowIcon(f)}</span>
       <span class="list-txt"><span class="list-name">${addr}</span></span>
       <span class="list-dist">${fmtDist(f.dist)}</span>
     </button>`;
   }).join('');
 }
-function openList() { renderListItems(); $('listSheet').classList.add('open'); }
+function openList() {
+  listQuery = '';
+  if ($('listSearch')) $('listSearch').value = '';
+  renderListItems();
+  $('listSheet').classList.add('open');
+}
 function closeList() { $('listSheet').classList.remove('open'); }
 $('listBtn').addEventListener('click', openList);
 $('listClose').addEventListener('click', closeList);
+if ($('listSearch')) $('listSearch').addEventListener('input', () => { listQuery = $('listSearch').value; renderListItems(); });
 $('listItems').addEventListener('click', (e) => {
   const btn = e.target.closest('.list-row'); if (!btn) return;
-  const f = fountains[parseInt(btn.dataset.i, 10)];
+  const f = fountains.find(x => favKey(x) === btn.dataset.k);
   if (!f) return;
   closeList();
   map.setView([f.lat, f.lon], 17, { animate: true });
@@ -723,13 +788,14 @@ function recomputeDistances() {
   if (!userPos) return;
   for (const f of fountains) f.dist = haversine(userPos.lat, userPos.lon, f.lat, f.lon);
   fountains.sort((a, b) => a.dist - b.dist);
+  checkVisits();
 }
 function nearest() { return fountains.length ? fountains[0] : null; }
 
 function fitInitialView() {
   if (!userPos || !map) return;
   const near = nearest();
-  if (!near) { map.setView([userPos.lat, userPos.lon], 15); toast('No hay fuentes con estos filtros.'); return; }
+  if (!near) { map.setView([userPos.lat, userPos.lon], 15); return; }   // el estado vacío ya lo explica, sin toast redundante
   const radius = Math.max(near.dist * 1.25, MIN_RADIUS);
   const dLat = radius / 111320;
   const dLon = radius / (111320 * Math.cos(toRad(userPos.lat)));
@@ -906,16 +972,33 @@ function openSheet(f) {
   const addr = [p.DIRECCION, p.DIRECCION_AUX].filter(Boolean).join(' · ');
   $('sName').textContent = p.BARRIO ? `${t('fountain')} · ${p.BARRIO}` : t('fountain_water');
   $('sAddr').textContent = [addr, p.DISTRITO].filter(Boolean).join(' — ');
-  const [usoKey, usoTxt] = usoLabel(p.USO);
+  const rawUso = (p.USO || '').toUpperCase();
   const operative = isOperative(f);
   const chips = [];
-  chips.push(`<span class="chip dist">${pinSvg()} ${fmtDist(f.dist)}</span>`);
-  chips.push(`<span class="chip">${USO_ICON[usoKey] || ''} ${usoTxt}</span>`);
-  chips.push(`<span class="chip ${operative ? 'ok' : 'bad'}">${operative ? checkSvg() : crossSvg()} ${operative ? t('operative') : (p.ESTADO ? titleCase(p.ESTADO) : t('out_service'))}</span>`);
+  chips.push(`<span class="chip dist">${pinSvg()} ${fmtDist(f.dist)} · ${fmtWalkMin(f.dist)}</span>`);
+  // Solo mostramos el chip de uso/estado cuando dice algo que no sea "lo normal":
+  // la mayoría no tiene uso especificado, y con el filtro por defecto casi todas
+  // están operativas — mostrarlo siempre en cada ficha era puro ruido repetido.
+  if (rawUso === 'PERSONAS' || rawUso === 'MASCOTAS' || rawUso === 'MIXTO') {
+    const [usoKey, usoTxt] = usoLabel(p.USO);
+    chips.push(`<span class="chip">${USO_ICON[usoKey] || ''} ${usoTxt}</span>`);
+  }
+  if (!operative) {
+    chips.push(`<span class="chip bad">${crossSvg()} ${p.ESTADO ? titleCase(p.ESTADO) : t('out_service')}</span>`);
+  }
   $('sChips').innerHTML = chips.join('');
+  renderVisitInfo(f);
   updateFavBtn();
   $('sheet').classList.add('open');
   try { localStorage.setItem(SHEET_OPEN_KEY, '1'); } catch (_) {}
+}
+function renderVisitInfo(f) {
+  const el = $('sVisits'); if (!el) return;
+  const v = visits[favKey(f)];
+  if (!v) { el.textContent = ''; el.style.display = 'none'; return; }
+  const d = new Date(v.last).toLocaleDateString('es-ES', { day: 'numeric', month: 'numeric', year: '2-digit' });
+  el.textContent = (v.count === 1 ? t('visit_once') : t('visit_many').replace('{n}', v.count)) + ' ' + d;
+  el.style.display = 'block';
 }
 function updateFavBtn() {
   if (!selected) return;
@@ -926,7 +1009,7 @@ function updateFavBtn() {
 function updateSheetDistance() {
   if (!selected) return;
   const el = $('sChips').querySelector('.chip.dist');
-  if (el) el.innerHTML = `${pinSvg()} ${fmtDist(selected.dist)}`;
+  if (el) el.innerHTML = `${pinSvg()} ${fmtDist(selected.dist)} · ${fmtWalkMin(selected.dist)}`;
 }
 function pinSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>'; }
 function checkSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'; }
@@ -1012,7 +1095,7 @@ async function startAR() {
   $('arVideo').srcObject = arStream;
   $('ar').style.display = 'block';
   $('arName').textContent = $('sName').textContent;
-  arHeading = null; arPitch = null;
+  arHeading = null; arPitch = null; arArrivedVibrated = false;
   acquireCompass();
   updateAR();
 }
@@ -1072,11 +1155,14 @@ function onOrient(e) {
         setBearingSafe(mapBearingSign * mapHeading);
       }
       // Al girar sin parar, a leaflet-rotate a veces se le quedan huecos sin
-      // teselas en las esquinas que va dejando al descubierto el giro. Forzamos
-      // de vez en cuando un recálculo para que las rellene.
-      if (map && now - lastTileRefresh > 1200) {
+      // teselas en las esquinas que va dejando al descubierto el giro, porque el
+      // giro nunca "termina" (invalidateSize no sirve: el contenedor no cambia
+      // de tamaño, así que no hace nada). Forzamos directamente al motor de
+      // teselas a recalcular qué hace falta para el encuadre actual.
+      if (tileLayer && now - lastTileRefresh > 800) {
         lastTileRefresh = now;
-        map.invalidateSize({ pan: false });
+        if (typeof tileLayer._update === 'function') tileLayer._update(map.getCenter());
+        else if (map) map.invalidateSize({ pan: false });
       }
     }
     updateHeadingCone();
@@ -1091,10 +1177,12 @@ function updateAR() {
   if (dist < 12) {
     dEl.textContent = t('ar_almost'); dEl.classList.add('ar-arrived');
     hintEl.textContent = t('ar_steps');
+    if (!arArrivedVibrated) { arArrivedVibrated = true; if (navigator.vibrate) navigator.vibrate([40, 60, 90]); }
   } else {
     dEl.textContent = fmtDist(dist); dEl.classList.remove('ar-arrived');
     hintEl.textContent = arHeading == null ? t('ar_cal')
                        : (arPitch != null && arPitch > 45 ? t('ar_follow') : t('ar_lift'));
+    arArrivedVibrated = false;   // te alejas de nuevo → si vuelves a llegar, que vibre otra vez
   }
   // diferencia más corta entre el rumbo a la fuente y hacia dónde apuntas (−180..180, 0 = de frente)
   const offset = arHeading == null ? 0 : (((brg - arHeading + 540) % 360) - 180);
@@ -1112,6 +1200,48 @@ function updateAR() {
   } else {
     tgt.style.display = 'none';
   }
+  updateArRadar(tilt);
+}
+
+/* ---------- radar: otras fuentes cercanas flotando en la cámara, más
+   pequeñas/tenues que la seleccionada, y pulsables para cambiar de destino ---------- */
+const AR_RADAR_MAX = 6;        // no saturar la vista de iconos
+const AR_RADAR_RANGE_M = 400;  // más lejos que esto ya no aporta en AR
+let arRadarEls = [];
+function ensureArRadarEls(n) {
+  const wrap = $('arRadar'); if (!wrap) return;
+  while (arRadarEls.length < n) {
+    const div = document.createElement('div');
+    div.className = 'ar-radar-pin';
+    div.innerHTML = `<svg viewBox="0 0 34 42"><path d="M17 1 C17 1 4 15 4 25 a13 13 0 0 0 26 0 C30 15 17 1 17 1 Z" fill="#8fcdff" stroke="#fff" stroke-width="2"/><path d="M17 12 c-3 4 -5 6.5 -5 9 a5 5 0 0 0 10 0 c0 -2.5 -2 -5 -5 -9 z" fill="#fff"/></svg><span class="ar-radar-d"></span>`;
+    wrap.appendChild(div);
+    arRadarEls.push(div);
+  }
+}
+function updateArRadar(tilt) {
+  const others = fountains.filter(f => f !== selected && f.dist != null && f.dist <= AR_RADAR_RANGE_M).slice(0, AR_RADAR_MAX);
+  ensureArRadarEls(others.length);
+  arRadarEls.forEach((el, i) => {
+    const f = others[i];
+    if (!f) { el.style.display = 'none'; return; }
+    const brg = bearing(userPos.lat, userPos.lon, f.lat, f.lon);
+    const offset = arHeading == null ? 0 : (((brg - arHeading + 540) % 360) - 180);
+    if (tilt > 0.4 && Math.abs(offset) < 55) {
+      const x = 50 + (offset / 55) * 44;
+      el.style.left = Math.max(4, Math.min(96, x)) + '%';
+      el.querySelector('.ar-radar-d').textContent = fmtDist(f.dist);
+      el.style.display = 'flex';
+      el.onclick = () => retargetAR(f);
+    } else {
+      el.style.display = 'none';
+    }
+  });
+}
+function retargetAR(f) {
+  setTarget(f);
+  $('arName').textContent = f.props.BARRIO ? `${t('fountain')} · ${f.props.BARRIO}` : t('fountain_water');
+  arArrivedVibrated = false;
+  updateAR();
 }
 
 /* ============================================================
