@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.12.12';
+const APP_VERSION = '1.12.13';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const SHEET_OPEN_KEY = 'fuentes_sheet_open_v1';
@@ -282,6 +282,7 @@ let mapMode = 'north';           // north | free | compass
 let programmaticBearing = false;
 let mapHeading = null;           // brújula suavizada para el modo brújula del mapa (deg)
 let lastMapBearingUpdate = 0;
+let lastTileRefresh = 0;
 let headingConeEl = null;        // "foco" de orientación sobre el punto azul (como Google Maps)
 
 /* AR */
@@ -796,13 +797,23 @@ function updateModeButton() {
 /* "Foco" de orientación sobre el punto azul: hacia dónde apunta el móvil,
    relativo a lo que ahora mismo es "arriba" en pantalla (que cambia si el
    mapa está girado, en modo brújula o girado a mano). */
+let coneHeading = null;              // rumbo del foco, suavizado igual de calmado que el modo brújula
+let coneRotationDeg = 0;              // ángulo REAL aplicado al CSS, sin envolver a 0-360
 function updateHeadingCone() {
   if (!headingConeEl) return;
   if (arHeading == null) { headingConeEl.classList.remove('show'); return; }
+  // Mismo suavizado calmado que usa el modo brújula del mapa (antes usaba el
+  // rumbo "rápido" del AR, que temblaba mucho más que el mapa).
+  coneHeading = smoothAngle(coneHeading, arHeading, MAP_HEADING_SMOOTH);
   const brg = (map && map.getBearing) ? map.getBearing() : 0;
   const screenUp = (mapBearingSign || 1) * brg;
-  const rot = ((arHeading - screenUp) % 360 + 360) % 360;
-  headingConeEl.style.transform = `rotate(${rot}deg)`;
+  const target = ((coneHeading - screenUp) % 360 + 360) % 360;   // objetivo, 0-360
+  // Avanzamos desde el ángulo YA aplicado por el camino más corto, sin envolver:
+  // si aplicáramos "target" tal cual, al cruzar 0/360 el CSS interpola el número
+  // en bruto y el foco daría una vuelta entera de más antes de asentarse.
+  const delta = ((target - coneRotationDeg) % 360 + 540) % 360 - 180;
+  coneRotationDeg += delta;
+  headingConeEl.style.transform = `rotate(${coneRotationDeg}deg)`;
   headingConeEl.classList.add('show');
 }
 
@@ -1059,6 +1070,13 @@ function onOrient(e) {
       if (now - lastMapBearingUpdate > MAP_BEARING_THROTTLE) {
         lastMapBearingUpdate = now;
         setBearingSafe(mapBearingSign * mapHeading);
+      }
+      // Al girar sin parar, a leaflet-rotate a veces se le quedan huecos sin
+      // teselas en las esquinas que va dejando al descubierto el giro. Forzamos
+      // de vez en cuando un recálculo para que las rellene.
+      if (map && now - lastTileRefresh > 1200) {
+        lastTileRefresh = now;
+        map.invalidateSize({ pan: false });
       }
     }
     updateHeadingCone();
