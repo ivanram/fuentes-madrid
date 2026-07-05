@@ -5,9 +5,12 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.12.10';
+const APP_VERSION = '1.12.12';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
+const SHEET_OPEN_KEY = 'fuentes_sheet_open_v1';
+const VIEW_KEY = 'fuentes_view_v1';
+const FILTERS_KEY = 'fuentes_filters_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
 const MARKER_CAP = 350;          // máx. marcadores dibujados a la vez (rendimiento)
 const MIN_RADIUS = 70;           // m: evita sobre-acercar si la fuente está pegada
@@ -30,6 +33,8 @@ let geoWatchId = null;
 let selected = null;
 let dataUpdated = Date.now();
 const filters = { operativeOnly: true, uso: 'todas', favOnly: false };
+try { Object.assign(filters, JSON.parse(localStorage.getItem(FILTERS_KEY) || '{}')); } catch (_) {}
+function saveFilters() { try { localStorage.setItem(FILTERS_KEY, JSON.stringify(filters)); } catch (_) {} }
 
 /* favoritas (persisten en el navegador) */
 let favs = new Set();
@@ -70,6 +75,7 @@ const I18N = {
     list_title: 'Ver lista', list_h: 'Fuentes cercanas', list_empty: 'No hay fuentes con estos filtros.',
     compass_mode: 'Modo brújula',
     report_link: 'Reportar una fuente estropeada al Ayuntamiento',
+    donate: 'Invítame a un café',
     outside_title: '¡Ups!', outside_text: 'No hay ninguna fuente de la zona. Parece que no estás en Madrid o hay algún problema con la base de datos.',
     outside_teleport: 'Teletransportarme a Madrid', outside_dismiss: 'Seguir de todas formas',
     about_desc: 'Datos oficiales del <a href="https://datos.madrid.es/dataset/300051-0-fuentes" target="_blank" rel="noopener">Ayuntamiento de Madrid</a> (CC BY 4.0).',
@@ -110,6 +116,7 @@ const I18N = {
     list_title: 'View list', list_h: 'Nearby fountains', list_empty: 'No fountains match these filters.',
     compass_mode: 'Compass mode',
     report_link: 'Report a broken fountain to the City Council',
+    donate: 'Buy me a coffee',
     outside_title: 'Uh-oh!', outside_text: "No fountains found nearby. Looks like you're not in Madrid, or there's a problem with the database.",
     outside_teleport: 'Teleport me to Madrid', outside_dismiss: 'Continue anyway',
     about_desc: 'Official data from the <a href="https://datos.madrid.es/dataset/300051-0-fuentes" target="_blank" rel="noopener">City of Madrid</a> (CC BY 4.0).',
@@ -275,6 +282,7 @@ let mapMode = 'north';           // north | free | compass
 let programmaticBearing = false;
 let mapHeading = null;           // brújula suavizada para el modo brújula del mapa (deg)
 let lastMapBearingUpdate = 0;
+let headingConeEl = null;        // "foco" de orientación sobre el punto azul (como Google Maps)
 
 /* AR */
 let arHeading = null;            // brújula suavizada (deg)
@@ -469,6 +477,7 @@ function readFilterUI() {
   filters.favOnly = $('fFav').checked;
   const active = $('fUso').querySelector('button.active');
   filters.uso = active ? active.dataset.uso : 'todas';
+  saveFilters();
 }
 function onFilterChange() { readFilterUI(); applyFilters(); renderMarkers(); }
 function openFilters() {
@@ -516,10 +525,24 @@ $('listItems').addEventListener('click', (e) => {
    ============================================================ */
 function userIcon() {
   return L.divIcon({
-    className: '', iconSize: [30, 30], iconAnchor: [15, 15],
-    html: `<div class="user-dot"><svg width="30" height="30" viewBox="0 0 30 30">
-      <circle cx="15" cy="15" r="14" fill="#1f7fe0" fill-opacity="0.18"/>
-      <circle cx="15" cy="15" r="7.5" fill="#1f7fe0" stroke="#fff" stroke-width="3.2"/></svg></div>`
+    className: '', iconSize: [130, 130], iconAnchor: [65, 65],
+    html: `<div class="user-dot-wrap">
+      <div class="heading-cone">
+        <svg width="130" height="130" viewBox="0 0 130 130">
+          <defs>
+            <linearGradient id="coneGrad" x1="65" y1="65" x2="65" y2="5" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" style="stop-color:var(--blue);stop-opacity:.5"/>
+              <stop offset="100%" style="stop-color:var(--blue);stop-opacity:0"/>
+            </linearGradient>
+          </defs>
+          <path d="M65 65 L31 16 A60 60 0 0 1 99 16 Z" fill="url(#coneGrad)"/>
+        </svg>
+      </div>
+      <svg width="30" height="30" viewBox="0 0 30 30" class="user-core">
+        <circle cx="15" cy="15" r="14" style="fill:var(--blue)" fill-opacity="0.18"/>
+        <circle cx="15" cy="15" r="7.5" style="fill:var(--blue)" stroke="#fff" stroke-width="3.2"/>
+      </svg>
+    </div>`
   });
 }
 function dropSvg(w, h, color, inner) {
@@ -565,9 +588,13 @@ function initMap() {
 
   applyMapTheme();   // capa de teselas según el tema de mapa elegido en ajustes
   if (map.attributionControl) map.attributionControl.setPrefix(false);
+  calibrateBearingSign();   // una vez, para saber traducir rumbo real ⇄ giro en pantalla
 
-  userMarker = L.marker([userPos.lat, userPos.lon], { icon: userIcon(), zIndexOffset: 1000 })
+  userMarker = L.marker([userPos.lat, userPos.lon], { icon: userIcon(), zIndexOffset: 1000, interactive: false })
                .addTo(map).bindTooltip('Estás aquí', { direction: 'top', offset: [0, -12] });
+  const umEl = userMarker.getElement();
+  headingConeEl = umEl && umEl.querySelector('.heading-cone');
+  acquireCompass();   // brújula siempre activa mientras el mapa está abierto: para el "foco" de orientación
   accCircle = L.circle([userPos.lat, userPos.lon], {
     radius: userPos.acc || 30, color: '#1f7fe0', weight: 1, opacity: .3, fillOpacity: .08
   }).addTo(map);
@@ -576,6 +603,7 @@ function initMap() {
   applyFilters();
 
   map.on('moveend zoomend', debounce(renderMarkers, 90));
+  map.on('moveend zoomend', debounce(saveView, 400));   // recuerda dónde estabas mirando, por si la app se recarga
   map.on('rotate', onMapRotate);
   map.on('rotateend', updateModeButton);
   map.on('click', () => { closeSheet(); $('filterSheet').classList.remove('open'); closeList(); });   // tocar fuera cierra los paneles
@@ -588,9 +616,33 @@ function initMap() {
   restoreTarget();   // recupera la última fuente seleccionada (persistente)
   requestAnimationFrame(() => {
     map.invalidateSize();
-    if (!openSharedFountainIfAny()) fitInitialView();   // un enlace compartido manda sobre la vista inicial
+    // Prioridad al volver a abrir la app: enlace compartido > ficha que tenías
+    // abierta > vista donde te quedaste > vista inicial por defecto.
+    if (!openSharedFountainIfAny() && !restoreSheetIfWasOpen() && !restoreSavedView()) fitInitialView();
     renderMarkers(); updateModeButton(); updateFitBtn();
   });
+}
+
+/* ---------- recordar dónde estabas al volver a abrir la app ---------- */
+function saveView() {
+  if (!map) return;
+  const c = map.getCenter();
+  try { localStorage.setItem(VIEW_KEY, JSON.stringify({ lat: c.lat, lon: c.lng, zoom: map.getZoom() })); } catch (_) {}
+}
+function restoreSheetIfWasOpen() {
+  let wasOpen = null;
+  try { wasOpen = localStorage.getItem(SHEET_OPEN_KEY); } catch (_) {}
+  if (wasOpen !== '1' || !selected) return false;
+  map.setView([selected.lat, selected.lon], Math.max(map.getZoom(), 17), { animate: false });
+  openSheet(selected);
+  return true;
+}
+function restoreSavedView() {
+  let v = null;
+  try { v = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null'); } catch (_) {}
+  if (!v || typeof v.lat !== 'number' || typeof v.lon !== 'number') return false;
+  map.setView([v.lat, v.lon], v.zoom || 16, { animate: false });
+  return true;
 }
 
 /* ---------- abrir una fuente compartida por enlace (?f=lat,lon) ---------- */
@@ -739,6 +791,19 @@ function updateModeButton() {
   const needle = btn.querySelector('.needle');
   if (needle) needle.style.transform = `rotate(${-brg}deg)`;   // la aguja indica la orientación
   btn.classList.toggle('active', mapMode === 'compass');
+  updateHeadingCone();
+}
+/* "Foco" de orientación sobre el punto azul: hacia dónde apunta el móvil,
+   relativo a lo que ahora mismo es "arriba" en pantalla (que cambia si el
+   mapa está girado, en modo brújula o girado a mano). */
+function updateHeadingCone() {
+  if (!headingConeEl) return;
+  if (arHeading == null) { headingConeEl.classList.remove('show'); return; }
+  const brg = (map && map.getBearing) ? map.getBearing() : 0;
+  const screenUp = (mapBearingSign || 1) * brg;
+  const rot = ((arHeading - screenUp) % 360 + 360) % 360;
+  headingConeEl.style.transform = `rotate(${rot}deg)`;
+  headingConeEl.classList.add('show');
 }
 
 /* ============================================================
@@ -839,6 +904,7 @@ function openSheet(f) {
   $('sChips').innerHTML = chips.join('');
   updateFavBtn();
   $('sheet').classList.add('open');
+  try { localStorage.setItem(SHEET_OPEN_KEY, '1'); } catch (_) {}
 }
 function updateFavBtn() {
   if (!selected) return;
@@ -855,7 +921,10 @@ function pinSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="current
 function checkSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'; }
 function crossSvg() { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>'; }
 
-function closeSheet() { $('sheet').classList.remove('open'); }   // mantiene la selección (el resaltado persiste)
+function closeSheet() {
+  $('sheet').classList.remove('open');   // mantiene la selección (el resaltado persiste)
+  try { localStorage.setItem(SHEET_OPEN_KEY, '0'); } catch (_) {}
+}
 $('sheetClose').addEventListener('click', closeSheet);
 
 /* arrastrar la ficha hacia abajo para cerrarla (y de paso bloquea el pull-to-refresh) */
@@ -992,6 +1061,7 @@ function onOrient(e) {
         setBearingSafe(mapBearingSign * mapHeading);
       }
     }
+    updateHeadingCone();
   }
   updateAR();
 }
@@ -1066,10 +1136,15 @@ function checkForUpdate(auto) {
         updateAvailable = d.version;
         reflectUpdate();
         // Recién abierta la app: actualiza sola en vez de esperar a que el usuario
-        // entre en "Acerca de" y toque el botón. Una vez por sesión (evita bucles
-        // si version.json tarda en propagarse justo tras publicar).
-        if (auto && !sessionStorage.getItem('fuentes_auto_updated')) {
-          try { sessionStorage.setItem('fuentes_auto_updated', '1'); } catch (_) {}
+        // entre en "Acerca de" y toque el botón. Guardamos en localStorage (no
+        // sessionStorage) la última versión a la que ya nos auto-actualizamos, para
+        // no recargar de nuevo en cada apertura si sigue siendo la misma versión —
+        // sessionStorage no sobrevive a que Android mate el proceso en segundo plano,
+        // así que con eso la app se recargaba entera cada vez que volvías a ella.
+        let already = null;
+        try { already = localStorage.getItem('fuentes_auto_updated_v'); } catch (_) {}
+        if (auto && already !== d.version) {
+          try { localStorage.setItem('fuentes_auto_updated_v', d.version); } catch (_) {}
           forceUpdate();
           return;
         }

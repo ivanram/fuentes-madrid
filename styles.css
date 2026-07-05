@@ -92,7 +92,13 @@ footer.bar .refresh-link{
 footer.bar .refresh-link:active{opacity:.6}
 
 /* ---------- Leaflet marker tweaks ---------- */
-.user-dot{filter:drop-shadow(0 3px 5px rgba(0,0,0,.3))}
+.user-dot-wrap{position:relative;width:100%;height:100%}
+.user-core{position:absolute;top:50%;left:50%;margin:-15px 0 0 -15px;filter:drop-shadow(0 3px 5px rgba(0,0,0,.3))}
+.heading-cone{
+  position:absolute;inset:0;transform-origin:50% 50%;
+  opacity:0;transition:opacity .3s,transform .2s linear;pointer-events:none;
+}
+.heading-cone.show{opacity:1}
 .fountain-pin{filter:drop-shadow(0 3px 4px rgba(0,0,0,.25));transition:transform .12s}
 .fountain-pin.off{opacity:.55}
 .leaflet-marker-icon:focus{outline:none}
@@ -318,6 +324,7 @@ header.bar .t:active{opacity:.6}
 #about .updated{margin-top:8px;font-size:.84rem;color:var(--muted);display:flex;gap:7px;align-items:center}
 #about .updated .dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
 #about .version{margin-top:12px;font-size:.78rem;color:#9aa7b6;letter-spacing:.04em}
+#about .donate-btn{margin-top:14px;text-decoration:none;font-size:.94rem;padding:12px 20px}
 #about .report-link{
   display:block;margin-top:10px;font-size:.76rem;color:#9aa7b6;
   text-decoration:underline;text-underline-offset:3px;
