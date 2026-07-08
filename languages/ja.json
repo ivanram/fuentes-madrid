@@ -46,6 +46,7 @@
     "lang_es": "スペイン語",
     "lang_en": "英語",
     "lang_other": "その他",
+    "lang_placeholder": "言語を選択してください…",
     "set_tema": "テーマ",
     "set_claro": "ライト",
     "set_oscuro": "ダーク",

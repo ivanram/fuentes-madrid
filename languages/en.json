@@ -22,6 +22,7 @@
     "search_ph": "Search street, area…",
     "about_desc": "Official data from the <a href=\"https://datos.madrid.es/dataset/300051-0-fuentes\" target=\"_blank\" rel=\"noopener\">City of Madrid</a> (CC BY 4.0).",
     "set_idioma": "Language", "lang_es": "Spanish", "lang_en": "English", "lang_other": "Other",
+    "lang_placeholder": "Choose a language…",
     "set_tema": "Theme", "set_claro": "Light", "set_oscuro": "Dark", "set_sistema": "System", "set_color": "Accent colour",
     "set_mapa": "Map", "map_moderno": "Modern", "map_clasico": "Classic", "map_minimalista": "Minimal",
     "map_cyberpunk": "Cyberpunk", "map_colorido": "Colourful", "map_sepia": "Sepia",

@@ -22,6 +22,7 @@
     "search_ph": "Cerca via, quartiere…",
     "about_desc": "Dati ufficiali del <a href=\"https://datos.madrid.es/dataset/300051-0-fuentes\" target=\"_blank\" rel=\"noopener\">Comune di Madrid</a> (CC BY 4.0).",
     "set_idioma": "Lingua", "lang_es": "Spagnolo", "lang_en": "Inglese", "lang_other": "Altre",
+    "lang_placeholder": "Scegli una lingua…",
     "set_tema": "Tema", "set_claro": "Chiaro", "set_oscuro": "Scuro", "set_sistema": "Sistema", "set_color": "Colore accento",
     "set_mapa": "Mappa", "map_moderno": "Moderno", "map_clasico": "Classico", "map_minimalista": "Minimalista",
     "map_cyberpunk": "Cyberpunk", "map_colorido": "Colorato", "map_sepia": "Seppia",

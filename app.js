@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.12.17';
+const APP_VERSION = '1.12.18';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const SHEET_OPEN_KEY = 'fuentes_sheet_open_v1';
@@ -242,8 +242,11 @@ function importData(file) {
 function populateOtherLanguages() {
   const sel = $('setLangOther'); if (!sel) return;
   const others = Object.keys(I18N).filter(c => c !== 'es' && c !== 'en').sort();
-  sel.innerHTML = others.map(c => `<option value="${c}">${(LANG_META[c] && LANG_META[c].name) || c}</option>`).join('');
+  sel.innerHTML = '<option value="" disabled></option>' +
+    others.map(c => `<option value="${c}">${(LANG_META[c] && LANG_META[c].name) || c}</option>`).join('');
 }
+/* true justo tras pulsar "Otros": muestra el desplegable sin cambiar aún el idioma activo */
+let otherPickerOpen = false;
 function syncSettingsUI() {
   const st = $('setTheme'), sm = $('setMap'), sa = $('setAccent'), sl = $('setLang'), slOther = $('setLangOther');
   if (st) st.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.theme === settings.theme));
@@ -251,11 +254,14 @@ function syncSettingsUI() {
   if (sa) sa.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.accent === settings.accent));
   if (sl) {
     const resolved = getLang();
-    const group = (resolved === 'es' || resolved === 'en') ? resolved : 'other';
+    const isOtherActive = resolved !== 'es' && resolved !== 'en';
+    const group = isOtherActive || otherPickerOpen ? 'other' : resolved;
     sl.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.lang === group));
     if (slOther) {
+      const ph = slOther.querySelector('option[value=""]');
+      if (ph) ph.textContent = t('lang_placeholder');
       slOther.style.display = group === 'other' ? 'block' : 'none';
-      if (group === 'other') slOther.value = resolved;
+      if (group === 'other') slOther.value = isOtherActive ? resolved : '';
     }
   }
   if ($('fTrail')) $('fTrail').checked = !!settings.trailOn;
@@ -1297,7 +1303,7 @@ $('fUso').querySelectorAll('button').forEach(b => b.addEventListener('click', ()
 }));
 
 /* ---- Ajustes ---- */
-$('settingsBtn').addEventListener('click', () => { syncSettingsUI(); $('settings').classList.add('open'); });
+$('settingsBtn').addEventListener('click', () => { otherPickerOpen = false; syncSettingsUI(); $('settings').classList.add('open'); });
 $('settingsClose').addEventListener('click', () => $('settings').classList.remove('open'));
 $('setTheme').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
   settings.theme = b.dataset.theme; saveSettings(); applyTheme(); syncSettingsUI();
@@ -1310,20 +1316,19 @@ $('setAccent').querySelectorAll('button').forEach(b => b.addEventListener('click
 }));
 $('setLang').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
   if (b.dataset.lang === 'other') {
-    // Solo abre el desplegable. Si ya había un idioma "otro" elegido, lo dejamos
-    // tal cual; si no, caemos al primero de la lista para que no quede en blanco.
-    const resolved = getLang();
-    if (resolved === 'es' || resolved === 'en') {
-      const first = $('setLangOther') && $('setLangOther').options[0];
-      if (first) { settings.lang = first.value; saveSettings(); applyI18n(); }
-    }
+    // Solo mostramos el desplegable: el idioma activo no cambia hasta que
+    // el usuario elija uno concreto (si ya había uno "otro" activo, se ve tal cual).
+    otherPickerOpen = true;
   } else {
+    otherPickerOpen = false;
     settings.lang = b.dataset.lang; saveSettings(); applyI18n();
   }
   syncSettingsUI();
 }));
 if ($('setLangOther')) $('setLangOther').addEventListener('change', () => {
-  settings.lang = $('setLangOther').value; saveSettings(); applyI18n(); syncSettingsUI();
+  const v = $('setLangOther').value;
+  if (!v) return;   // opción de marcador de posición: no hace nada
+  settings.lang = v; saveSettings(); applyI18n(); syncSettingsUI();
 });
 $('fTrail').addEventListener('change', () => {
   settings.trailOn = $('fTrail').checked; saveSettings();

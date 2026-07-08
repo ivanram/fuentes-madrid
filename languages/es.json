@@ -22,6 +22,7 @@
     "search_ph": "Buscar calle, barrio…",
     "about_desc": "Datos oficiales del <a href=\"https://datos.madrid.es/dataset/300051-0-fuentes\" target=\"_blank\" rel=\"noopener\">Ayuntamiento de Madrid</a> (CC BY 4.0).",
     "set_idioma": "Idioma", "lang_es": "Español", "lang_en": "Inglés", "lang_other": "Otros",
+    "lang_placeholder": "Elige un idioma…",
     "set_tema": "Tema", "set_claro": "Claro", "set_oscuro": "Oscuro", "set_sistema": "Sistema", "set_color": "Color de acento",
     "set_mapa": "Mapa", "map_moderno": "Moderno", "map_clasico": "Clásico", "map_minimalista": "Minimalista",
     "map_cyberpunk": "Cyberpunk", "map_colorido": "Colorido", "map_sepia": "Sepia",
