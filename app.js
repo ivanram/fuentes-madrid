@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.12.22';
+const APP_VERSION = '1.12.23';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const SHEET_OPEN_KEY = 'fuentes_sheet_open_v1';
@@ -1384,6 +1384,14 @@ loadLanguages().then(() => {
 // Se registra cuanto antes, sin esperar a los datos: algunos auditores (PWABuilder,
 // Lighthouse con red simulada lenta) no lo detectan si tarda en llegar tras el fetch.
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+// Google Play no permite donativos a un desarrollador particular por fuera de su
+// sistema de pagos: si la app se abre dentro del envoltorio Android (TWA), el
+// referrer viene como "android-app://<paquete>". Ocultamos el botón solo ahí;
+// en la web/PWA normal sigue visible.
+if (document.referrer.startsWith('android-app://') && $('donateBtn')) {
+  $('donateBtn').style.display = 'none';
+}
 
 (async function boot() {
   try { await ensureData(); }
