@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.12.21';
+const APP_VERSION = '1.12.22';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const SHEET_OPEN_KEY = 'fuentes_sheet_open_v1';
@@ -1381,10 +1381,13 @@ loadLanguages().then(() => {
   applyI18n(); populateOtherLanguages(); syncSettingsUI();   // re-aplica en cuanto los idiomas terminan de cargar
 });
 
+// Se registra cuanto antes, sin esperar a los datos: algunos auditores (PWABuilder,
+// Lighthouse con red simulada lenta) no lo detectan si tarda en llegar tras el fetch.
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
 (async function boot() {
   try { await ensureData(); }
   catch (e) { setUpdated(Date.now(), 0); if ($('updatedText')) $('updatedText').textContent = t('db_error'); }
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   setTimeout(() => checkForUpdate(true), 600);   // comprueba versión y se actualiza sola si toca
   autoStartIfAllowed();
 })();
