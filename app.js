@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.12.16';
+const APP_VERSION = '1.12.17';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const SHEET_OPEN_KEY = 'fuentes_sheet_open_v1';
@@ -111,10 +111,12 @@ function getLang() {
   return I18N.es ? 'es' : (Object.keys(I18N)[0] || 'es');
 }
 function t(k) { const L = getLang(); return (I18N[L] && I18N[L][k]) || (I18N.es && I18N.es[k]) || k; }
+const RTL_LANGS = ['ar'];
 function applyI18n() {
   const L = getLang();
   if (!I18N[L]) return;   // aún no ha cargado ningún idioma: se queda el texto estático del HTML
   document.documentElement.setAttribute('lang', L);
+  document.documentElement.dir = RTL_LANGS.includes(L) ? 'rtl' : 'ltr';
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const k = el.getAttribute('data-i18n');
     if (I18N[L][k] != null) { if (/[<&]/.test(I18N[L][k])) el.innerHTML = I18N[L][k]; else el.textContent = I18N[L][k]; }

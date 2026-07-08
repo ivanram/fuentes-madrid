@@ -2,13 +2,13 @@
    Estrategia "network-first": si hay conexión, siempre sirve la versión
    más reciente (así las actualizaciones se ven al instante); si no hay
    conexión, tira de la copia cacheada. Mantiene la app usable offline. */
-const CACHE = 'fuentes-madrid-v42';
+const CACHE = 'fuentes-madrid-v43';
 const SHELL = [
   './',
   './index.html',
-  './styles.css?v=1.12.16',
-  './themes.js?v=1.12.16',
-  './app.js?v=1.12.16',
+  './styles.css?v=1.12.17',
+  './themes.js?v=1.12.17',
+  './app.js?v=1.12.17',
   './fuentes.json',
   './languages/manifest.json',
   './languages/es.json',
@@ -16,6 +16,16 @@ const SHELL = [
   './languages/fr.json',
   './languages/it.json',
   './languages/de.json',
+  './languages/pt.json',
+  './languages/zh.json',
+  './languages/ro.json',
+  './languages/ar.json',
+  './languages/uk.json',
+  './languages/ja.json',
+  './languages/ko.json',
+  './languages/nl.json',
+  './languages/pl.json',
+  './languages/ru.json',
   './icon-192.png?v=1.5',
   './icon-512.png',
   './manifest.webmanifest',
