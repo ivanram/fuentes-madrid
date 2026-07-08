@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "fuentesmadrid.ivanr.es",
+    "sha256_cert_fingerprints": ["C0:71:19:7A:98:83:95:6B:0B:1A:F3:3B:A3:BC:96:00:46:60:81:A0:70:90:1B:86:81:08:85:36:FE:8F:10:C9"]
+  }
+}]

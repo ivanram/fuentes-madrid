@@ -1,2 +1,10 @@
 backups/
 node_modules/
+
+# Paquete de PWABuilder: contiene la clave de firma y su contraseña.
+# NUNCA debe subirse a GitHub — guárdalo aparte, en un sitio seguro.
+*.keystore
+signing-key-info.txt
+*.aab
+*.apk
+Fuentes Madrid - Google Play package.zip
