@@ -5,11 +5,13 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.12.14';
+const APP_VERSION = '1.12.16';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const SHEET_OPEN_KEY = 'fuentes_sheet_open_v1';
 const VISITS_KEY = 'fuentes_visits_v1';
+const LAST_ACTIVE_KEY = 'fuentes_last_active_v1';
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000;   // más de esto sin usarla = sesión nueva: sin selección ni vista previas
 const VIEW_KEY = 'fuentes_view_v1';
 const FILTERS_KEY = 'fuentes_filters_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
@@ -85,103 +87,33 @@ function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringif
 /* ============================================================
    IDIOMA (es / en) — automático según el navegador, o elegido
    ============================================================ */
-const I18N = {
-  es: {
-    app_short: 'Fuentes', app_full: 'Fuentes de Madrid',
-    loading_text: 'Cargando fuentes…', splash_tag: '¿Dónde está la fuente más cercana?',
-    splash_desc: 'Encuentra la fuente pública de agua potable más cercana, según los <a href="https://datos.madrid.es/dataset/300051-0-fuentes" target="_blank" rel="noopener">datos oficiales del Ayuntamiento</a>.',
-    privacy1: 'La ubicación sólo se usa para ajustar el mapa y no se transmite ni guarda en ningún sitio.',
-    privacy2: 'La configuración de fuentes favoritas se guarda de forma local en tu navegador.',
-    btn_allow: 'Permitir ubicación', filter_h: 'Filtrar fuentes', settings_h: 'Ajustes',
-    route: 'Ruta andando', ar_view: 'Ver con AR', f_estado: 'Estado', f_oper: 'Solo fuentes operativas',
-    f_fav: 'Solo favoritas ❤️', f_who: '¿Para quién?', f_all: 'Todas', f_people: 'Personas', f_dogs: 'Perros 🐾',
-    f_show: 'Ver', f_fountains: 'fuentes',
-    share: 'Compartir', share_msg: 'Fuente de agua potable en Madrid', share_copied: 'Enlace copiado ✓',
-    list_title: 'Ver lista', list_h: 'Fuentes cercanas', list_empty: 'No hay fuentes con estos filtros.',
-    compass_mode: 'Modo brújula',
-    report_link: 'Reportar una fuente estropeada al Ayuntamiento',
-    donate: 'Invítame a un café',
-    outside_title: '¡Ups!', outside_text: 'No hay ninguna fuente de la zona. Parece que no estás en Madrid o hay algún problema con la base de datos.',
-    outside_teleport: 'Teletransportarme a Madrid', outside_dismiss: 'Seguir de todas formas',
-    visit_once: 'La visitaste 1 vez, el', visit_many: 'La visitaste {n} veces, la última el',
-    empty_h: 'Nada por aquí', empty_text: 'Ningún resultado con estos filtros. Prueba a quitar alguno.', empty_clear: 'Quitar filtros',
-    search_ph: 'Buscar calle, barrio…',
-    about_desc: 'Datos oficiales del <a href="https://datos.madrid.es/dataset/300051-0-fuentes" target="_blank" rel="noopener">Ayuntamiento de Madrid</a> (CC BY 4.0).',
-    set_idioma: 'Idioma', lang_auto: 'Automático', lang_es: 'Español', lang_en: 'Inglés',
-    set_tema: 'Tema', set_claro: 'Claro', set_oscuro: 'Oscuro', set_sistema: 'Sistema', set_color: 'Color de acento',
-    set_mapa: 'Mapa', map_moderno: 'Moderno', map_clasico: 'Clásico', map_minimalista: 'Minimalista',
-    map_cyberpunk: 'Cyberpunk', map_colorido: 'Colorido', map_sepia: 'Sepia',
-    set_estela: 'Estela de ubicación', set_estela_on: 'Mostrar el rastro de tu movimiento', set_estela_len: 'Longitud',
-    set_datos: 'Datos · favoritas y ajustes', btn_export: 'Exportar', btn_import: 'Importar',
-    set_datos_hint: 'Para llevar tu configuración a otro móvil o navegador.',
-    footer: 'Creado por Ivan con ❤️ y mucha IA',
-    update_available: 'Nueva versión disponible', update_to: 'Actualizar a',
-    north: 'Norte arriba', free: 'Modo libre', nearest: 'Fuente más cercana', exported: 'Configuración exportada',
-    imported: 'Configuración importada ✓', bad_file: 'Ese archivo no es válido', updating: 'Actualizando…',
-    data_updated: 'Datos actualizados', db_error: 'No se pudo cargar la base de datos.',
-    err_denied: 'Permiso denegado. Actívalo en los ajustes del navegador para ver las fuentes cercanas.',
-    err_locate: 'No hemos podido obtener tu ubicación. Inténtalo de nuevo.',
-    err_load: 'No se pudieron cargar las fuentes. Recarga la página e inténtalo de nuevo.',
-    searching: 'Buscando tu posición…', retry: 'Reintentar', no_geo: 'Tu navegador no permite geolocalización.',
-    fountain: 'Fuente', fountain_water: 'Fuente de agua', operative: 'Operativa', out_service: 'Averiada',
-    use_people: 'Personas', use_dogs: 'Perros', use_both: 'Mixta', use_unknown: 'Uso no especificado',
-    ar_almost: '¡Ya casi!', ar_steps: 'La fuente está a unos pasos de ti',
-    ar_cal: 'Mueve el móvil en forma de 8 para calibrar la brújula', ar_lift: 'Levanta el móvil para ver la fuente',
-    ar_follow: 'Sigue el icono o la flecha', ar_cam_no: 'Tu navegador no permite usar la cámara para AR.',
-    ar_cam_err: 'No se pudo abrir la cámara. Revisa los permisos.', ar_perm: 'Necesito permiso de orientación para la brújula.'
-  },
-  en: {
-    app_short: 'Fountains', app_full: 'Madrid Fountains',
-    loading_text: 'Loading fountains…', splash_tag: "Where's the nearest fountain?",
-    splash_desc: 'Find the nearest public drinking fountain, from the <a href="https://datos.madrid.es/dataset/300051-0-fuentes" target="_blank" rel="noopener">official City of Madrid data</a>.',
-    privacy1: 'Your location is only used to frame the map; it is never sent or stored anywhere.',
-    privacy2: 'Your favourite fountains are saved locally in your browser.',
-    btn_allow: 'Allow location', filter_h: 'Filter fountains', settings_h: 'Settings',
-    route: 'Walking route', ar_view: 'View in AR', f_estado: 'Status', f_oper: 'Working fountains only',
-    f_fav: 'Favourites only ❤️', f_who: 'For whom?', f_all: 'All', f_people: 'People', f_dogs: 'Dogs 🐾',
-    f_show: 'Show', f_fountains: 'fountains',
-    share: 'Share', share_msg: 'Drinking fountain in Madrid', share_copied: 'Link copied ✓',
-    list_title: 'View list', list_h: 'Nearby fountains', list_empty: 'No fountains match these filters.',
-    compass_mode: 'Compass mode',
-    report_link: 'Report a broken fountain to the City Council',
-    donate: 'Buy me a coffee',
-    outside_title: 'Uh-oh!', outside_text: "No fountains found nearby. Looks like you're not in Madrid, or there's a problem with the database.",
-    outside_teleport: 'Teleport me to Madrid', outside_dismiss: 'Continue anyway',
-    visit_once: "You've visited it once, on", visit_many: "You've visited it {n} times, last on",
-    empty_h: 'Nothing here', empty_text: 'No results with these filters. Try removing one.', empty_clear: 'Clear filters',
-    search_ph: 'Search street, area…',
-    about_desc: 'Official data from the <a href="https://datos.madrid.es/dataset/300051-0-fuentes" target="_blank" rel="noopener">City of Madrid</a> (CC BY 4.0).',
-    set_idioma: 'Language', lang_auto: 'Automatic', lang_es: 'Spanish', lang_en: 'English',
-    set_tema: 'Theme', set_claro: 'Light', set_oscuro: 'Dark', set_sistema: 'System', set_color: 'Accent colour',
-    set_mapa: 'Map', map_moderno: 'Modern', map_clasico: 'Classic', map_minimalista: 'Minimal',
-    map_cyberpunk: 'Cyberpunk', map_colorido: 'Colourful', map_sepia: 'Sepia',
-    set_estela: 'Location trail', set_estela_on: 'Show the trail of your movement', set_estela_len: 'Length',
-    set_datos: 'Data · favourites & settings', btn_export: 'Export', btn_import: 'Import',
-    set_datos_hint: 'To move your settings to another phone or browser.',
-    footer: 'Made by Ivan with ❤️ and lots of AI',
-    update_available: 'New version available', update_to: 'Update to',
-    north: 'North up', free: 'Free mode', nearest: 'Nearest fountain', exported: 'Settings exported',
-    imported: 'Settings imported ✓', bad_file: "That file isn't valid", updating: 'Updating…',
-    data_updated: 'Data updated', db_error: "Couldn't load the database.",
-    err_denied: 'Permission denied. Enable it in your browser settings to see nearby fountains.',
-    err_locate: "We couldn't get your location. Try again.",
-    err_load: "Couldn't load the fountains. Reload the page and try again.",
-    searching: 'Finding your position…', retry: 'Retry', no_geo: "Your browser doesn't support geolocation.",
-    fountain: 'Fountain', fountain_water: 'Drinking fountain', operative: 'Working', out_service: 'Out of order',
-    use_people: 'People', use_dogs: 'Dogs', use_both: 'Mixed', use_unknown: 'Unspecified use',
-    ar_almost: 'Almost there!', ar_steps: 'The fountain is a few steps away',
-    ar_cal: 'Move your phone in a figure 8 to calibrate the compass', ar_lift: 'Lift your phone to see the fountain',
-    ar_follow: 'Follow the icon or the arrow', ar_cam_no: "Your browser can't use the camera for AR.",
-    ar_cam_err: "Couldn't open the camera. Check permissions.", ar_perm: 'I need orientation permission for the compass.'
-  }
-};
-function getLang() {
-  if (settings.lang === 'es' || settings.lang === 'en') return settings.lang;
-  return (navigator.language || 'es').toLowerCase().indexOf('es') === 0 ? 'es' : 'en';
+/* Las cadenas viven en archivos languages/<código>.json (ver loadLanguages()).
+   Aquí solo queda el estado en memoria una vez cargadas. */
+let I18N = {};
+let LANG_META = {};   // código -> { name: 'Español' }
+async function loadLanguages() {
+  try {
+    const manifest = await fetch('languages/manifest.json', { cache: 'no-cache' }).then(r => r.json());
+    const codes = Array.isArray(manifest.available) ? manifest.available : [];
+    await Promise.all(codes.map(async (code) => {
+      try {
+        const data = await fetch(`languages/${code}.json`, { cache: 'no-cache' }).then(r => r.json());
+        if (data && data.strings) { I18N[code] = data.strings; LANG_META[code] = data.meta || { name: code }; }
+      } catch (_) { /* ese idioma en concreto no cargó: seguimos con los demás */ }
+    }));
+  } catch (_) { /* sin manifiesto (sin red la primera vez, etc.): nos quedamos con el texto estático del HTML */ }
 }
-function t(k) { const L = getLang(); return (I18N[L] && I18N[L][k]) || I18N.es[k] || k; }
+function getLang() {
+  // 'es'/'en' explícitos, o cualquier otro código ya elegido en el desplegable "Otros"
+  if (settings.lang && settings.lang !== 'auto' && I18N[settings.lang]) return settings.lang;
+  const nav = (navigator.language || 'es').toLowerCase().slice(0, 2);
+  if (I18N[nav]) return nav;
+  return I18N.es ? 'es' : (Object.keys(I18N)[0] || 'es');
+}
+function t(k) { const L = getLang(); return (I18N[L] && I18N[L][k]) || (I18N.es && I18N.es[k]) || k; }
 function applyI18n() {
   const L = getLang();
+  if (!I18N[L]) return;   // aún no ha cargado ningún idioma: se queda el texto estático del HTML
   document.documentElement.setAttribute('lang', L);
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const k = el.getAttribute('data-i18n');
@@ -303,12 +235,27 @@ function importData(file) {
   };
   r.readAsText(file);
 }
+/* El desplegable "Otros" se rellena con todo lo que haya en el manifiesto de
+   idiomas salvo es/en (que ya tienen su propio botón). */
+function populateOtherLanguages() {
+  const sel = $('setLangOther'); if (!sel) return;
+  const others = Object.keys(I18N).filter(c => c !== 'es' && c !== 'en').sort();
+  sel.innerHTML = others.map(c => `<option value="${c}">${(LANG_META[c] && LANG_META[c].name) || c}</option>`).join('');
+}
 function syncSettingsUI() {
-  const st = $('setTheme'), sm = $('setMap'), sa = $('setAccent'), sl = $('setLang');
+  const st = $('setTheme'), sm = $('setMap'), sa = $('setAccent'), sl = $('setLang'), slOther = $('setLangOther');
   if (st) st.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.theme === settings.theme));
   if (sm) sm.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.map === settings.map));
   if (sa) sa.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.accent === settings.accent));
-  if (sl) sl.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.lang === settings.lang));
+  if (sl) {
+    const resolved = getLang();
+    const group = (resolved === 'es' || resolved === 'en') ? resolved : 'other';
+    sl.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.lang === group));
+    if (slOther) {
+      slOther.style.display = group === 'other' ? 'block' : 'none';
+      if (group === 'other') slOther.value = resolved;
+    }
+  }
   if ($('fTrail')) $('fTrail').checked = !!settings.trailOn;
   if ($('fTrailLen')) $('fTrailLen').value = trailMax();
   if ($('trailLenVal')) $('trailLenVal').textContent = trailMax();
@@ -460,7 +407,21 @@ function requestLocation() {
 }
 function posToObj(pos) { return { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy }; }
 
+/* ---------- ¿sesión nueva o "seguimos donde lo dejamos"? ---------- */
+function isFreshSession() {
+  let last = null;
+  try { last = parseInt(localStorage.getItem(LAST_ACTIVE_KEY), 10); } catch (_) {}
+  if (!last || isNaN(last)) return true;   // primera vez, o nunca se guardó
+  return (Date.now() - last) > SESSION_TIMEOUT_MS;
+}
+function markActive() { try { localStorage.setItem(LAST_ACTIVE_KEY, String(Date.now())); } catch (_) {} }
+document.addEventListener('visibilitychange', () => { if (document.hidden) markActive(); });
+window.addEventListener('pagehide', markActive);
+setInterval(() => { if (!document.hidden) markActive(); }, 60000);   // colchón si el proceso muere sin avisar
+let freshSession = true;
+
 async function startApp() {
+  freshSession = isFreshSession();
   try { if (!allFountains.length) await ensureData(); }
   catch (e) {
     $('loading').style.display = 'none';
@@ -670,22 +631,31 @@ function initMap() {
 
   map.on('moveend zoomend', debounce(renderMarkers, 90));
   map.on('moveend zoomend', debounce(saveView, 400));   // recuerda dónde estabas mirando, por si la app se recarga
+  map.on('moveend zoomend', updateRecenterState);
   map.on('rotate', onMapRotate);
   map.on('rotateend', updateModeButton);
   map.on('click', () => { closeSheet(); $('filterSheet').classList.remove('open'); closeList(); });   // tocar fuera cierra los paneles
 
-  $('recenter').addEventListener('click', () => { if (userPos) map.setView([userPos.lat, userPos.lon], 16, { animate: true }); });
+  $('recenter').addEventListener('click', () => {
+    if (!userPos) return;
+    map.setView([userPos.lat, userPos.lon], 16, { animate: true });
+    updateRecenterState();
+  });
   $('mapMode').addEventListener('click', onModeButton);
   $('fitBtn').addEventListener('click', fitUserAndFountain);
 
   startTrail();      // estela de ubicación
-  restoreTarget();   // recupera la última fuente seleccionada (persistente)
+  // Solo recuperamos selección/vista si venimos de una sesión reciente (<30 min).
+  // Si ha pasado más, o es la primera vez, empezamos limpios: sin fuente
+  // seleccionada y centrados en tu ubicación real.
+  if (!freshSession) restoreTarget();
   requestAnimationFrame(() => {
     map.invalidateSize();
     // Prioridad al volver a abrir la app: enlace compartido > ficha que tenías
     // abierta > vista donde te quedaste > vista inicial por defecto.
-    if (!openSharedFountainIfAny() && !restoreSheetIfWasOpen() && !restoreSavedView()) fitInitialView();
-    renderMarkers(); updateModeButton(); updateFitBtn();
+    const resumed = !freshSession && (restoreSheetIfWasOpen() || restoreSavedView());
+    if (!openSharedFountainIfAny() && !resumed) fitInitialView();
+    renderMarkers(); updateModeButton(); updateFitBtn(); updateRecenterState();
   });
 }
 
@@ -860,6 +830,17 @@ function updateModeButton() {
   btn.classList.toggle('active', mapMode === 'compass');
   updateHeadingCone();
 }
+/* invita a pulsar "centrar" cuando tu posición real ha quedado fuera (o casi)
+   del encuadre visible — típicamente al volver a la app tras andar un rato */
+const RECENTER_EDGE_MARGIN = 50;   // px: a menos de esto del borde ya cuenta como "casi fuera"
+function updateRecenterState() {
+  const btn = $('recenter'); if (!btn || !map || !userPos) return;
+  const p = map.latLngToContainerPoint([userPos.lat, userPos.lon]);
+  const size = map.getSize();
+  const offCenter = p.x < RECENTER_EDGE_MARGIN || p.y < RECENTER_EDGE_MARGIN
+                 || p.x > size.x - RECENTER_EDGE_MARGIN || p.y > size.y - RECENTER_EDGE_MARGIN;
+  btn.classList.toggle('attention', offCenter);
+}
 /* "Foco" de orientación sobre el punto azul: hacia dónde apunta el móvil,
    relativo a lo que ahora mismo es "arriba" en pantalla (que cambia si el
    mapa está girado, en modo brújula o girado a mano). */
@@ -946,6 +927,7 @@ function watchPosition() {
       }
       if (selected && $('sheet').classList.contains('open')) updateSheetDistance();
       if ($('ar').style.display === 'block') updateAR();
+      updateRecenterState();
     },
     () => {}, { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
   );
@@ -1325,8 +1307,22 @@ $('setAccent').querySelectorAll('button').forEach(b => b.addEventListener('click
   settings.accent = b.dataset.accent; saveSettings(); applyAccent(); syncSettingsUI();
 }));
 $('setLang').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
-  settings.lang = b.dataset.lang; saveSettings(); applyI18n(); syncSettingsUI();
+  if (b.dataset.lang === 'other') {
+    // Solo abre el desplegable. Si ya había un idioma "otro" elegido, lo dejamos
+    // tal cual; si no, caemos al primero de la lista para que no quede en blanco.
+    const resolved = getLang();
+    if (resolved === 'es' || resolved === 'en') {
+      const first = $('setLangOther') && $('setLangOther').options[0];
+      if (first) { settings.lang = first.value; saveSettings(); applyI18n(); }
+    }
+  } else {
+    settings.lang = b.dataset.lang; saveSettings(); applyI18n();
+  }
+  syncSettingsUI();
 }));
+if ($('setLangOther')) $('setLangOther').addEventListener('change', () => {
+  settings.lang = $('setLangOther').value; saveSettings(); applyI18n(); syncSettingsUI();
+});
 $('fTrail').addEventListener('change', () => {
   settings.trailOn = $('fTrail').checked; saveSettings();
   if (settings.trailOn) startTrail(); else clearTrailLayer();
@@ -1343,6 +1339,10 @@ $('importBtn').addEventListener('click', () => $('importFile').click());
 $('importFile').addEventListener('change', (e) => { if (e.target.files[0]) importData(e.target.files[0]); e.target.value = ''; });
 
 window.addEventListener('orientationchange', () => { if (map) setTimeout(() => map.invalidateSize(), 300); });
+
+loadLanguages().then(() => {
+  applyI18n(); populateOtherLanguages(); syncSettingsUI();   // re-aplica en cuanto los idiomas terminan de cargar
+});
 
 (async function boot() {
   try { await ensureData(); }
