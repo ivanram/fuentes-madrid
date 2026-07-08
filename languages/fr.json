@@ -43,6 +43,7 @@
     "ar_almost": "Presque arrivé !", "ar_steps": "La fontaine est à quelques pas",
     "ar_cal": "Bougez le téléphone en forme de 8 pour calibrer la boussole", "ar_lift": "Levez le téléphone pour voir la fontaine",
     "ar_follow": "Suivez l'icône ou la flèche", "ar_cam_no": "Votre navigateur ne peut pas utiliser la caméra pour la RA.",
-    "ar_cam_err": "Impossible d'ouvrir la caméra. Vérifiez les autorisations.", "ar_perm": "J'ai besoin de la permission d'orientation pour la boussole."
+    "ar_cam_err": "Impossible d'ouvrir la caméra. Vérifiez les autorisations.", "ar_perm": "J'ai besoin de la permission d'orientation pour la boussole.",
+    "far_text": "Cette appli ne montre des fontaines qu'à Madrid", "far_back": "Retour"
   }
 }

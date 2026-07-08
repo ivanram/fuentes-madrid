@@ -43,6 +43,7 @@
     "ar_almost": "Almost there!", "ar_steps": "The fountain is a few steps away",
     "ar_cal": "Move your phone in a figure 8 to calibrate the compass", "ar_lift": "Lift your phone to see the fountain",
     "ar_follow": "Follow the icon or the arrow", "ar_cam_no": "Your browser can't use the camera for AR.",
-    "ar_cam_err": "Couldn't open the camera. Check permissions.", "ar_perm": "I need orientation permission for the compass."
+    "ar_cam_err": "Couldn't open the camera. Check permissions.", "ar_perm": "I need orientation permission for the compass.",
+    "far_text": "This app only shows fountains in Madrid", "far_back": "Go back"
   }
 }

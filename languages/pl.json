@@ -99,6 +99,7 @@
     "ar_follow": "Podążaj za ikoną lub strzałką",
     "ar_cam_no": "Twoja przeglądarka nie zezwala na użycie kamery do AR.",
     "ar_cam_err": "Nie udało się otworzyć kamery. Sprawdź uprawnienia.",
-    "ar_perm": "Potrzebuję zgody na orientację, aby korzystać z kompasu."
+    "ar_perm": "Potrzebuję zgody na orientację, aby korzystać z kompasu.",
+    "far_text": "Ta aplikacja pokazuje tylko fontanny w Madrycie", "far_back": "Wróć"
   }
 }

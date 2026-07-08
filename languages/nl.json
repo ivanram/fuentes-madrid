@@ -99,6 +99,7 @@
     "ar_follow": "Volg het pictogram of de pijl",
     "ar_cam_no": "Je browser staat geen cameragebruik toe voor AR.",
     "ar_cam_err": "De camera kon niet worden geopend. Controleer de machtigingen.",
-    "ar_perm": "Ik heb toestemming voor richting nodig voor het kompas."
+    "ar_perm": "Ik heb toestemming voor richting nodig voor het kompas.",
+    "far_text": "Deze app toont alleen fonteinen in Madrid", "far_back": "Terug"
   }
 }

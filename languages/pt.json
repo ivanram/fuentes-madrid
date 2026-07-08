@@ -99,6 +99,7 @@
     "ar_follow": "Segue o ícone ou a seta",
     "ar_cam_no": "O teu navegador não permite usar a câmara para RA.",
     "ar_cam_err": "Não foi possível abrir a câmara. Verifica as permissões.",
-    "ar_perm": "Preciso de permissão de orientação para a bússola."
+    "ar_perm": "Preciso de permissão de orientação para a bússola.",
+    "far_text": "Esta app só mostra fontes em Madrid", "far_back": "Voltar"
   }
 }

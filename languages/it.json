@@ -43,6 +43,7 @@
     "ar_almost": "Ci sei quasi!", "ar_steps": "La fontana è a pochi passi",
     "ar_cal": "Muovi il telefono a forma di 8 per calibrare la bussola", "ar_lift": "Alza il telefono per vedere la fontana",
     "ar_follow": "Segui l'icona o la freccia", "ar_cam_no": "Il tuo browser non può usare la fotocamera per la RA.",
-    "ar_cam_err": "Impossibile aprire la fotocamera. Controlla i permessi.", "ar_perm": "Ho bisogno del permesso di orientamento per la bussola."
+    "ar_cam_err": "Impossibile aprire la fotocamera. Controlla i permessi.", "ar_perm": "Ho bisogno del permesso di orientamento per la bussola.",
+    "far_text": "Quest'app mostra solo fontane a Madrid", "far_back": "Indietro"
   }
 }

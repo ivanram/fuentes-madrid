@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.12.18';
+const APP_VERSION = '1.12.19';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const SHEET_OPEN_KEY = 'fuentes_sheet_open_v1';
@@ -470,7 +470,7 @@ $('teleportBtn').addEventListener('click', () => {
 $('outsideDismiss').addEventListener('click', () => { $('outsideModal').style.display = 'none'; });
 
 /* ---------- Panel "Acerca de" (al tocar el título) ---------- */
-$('aboutBtn').addEventListener('click', () => { $('about').classList.add('open'); checkForUpdate(); });
+$('aboutBtn').addEventListener('click', () => { closeSheet(); $('about').classList.add('open'); checkForUpdate(); });
 $('aboutClose').addEventListener('click', () => $('about').classList.remove('open'));
 
 /* ============================================================
@@ -504,6 +504,7 @@ function readFilterUI() {
 }
 function onFilterChange() { readFilterUI(); applyFilters(); renderMarkers(); }
 function openFilters() {
+  closeSheet();
   $('fOper').checked = filters.operativeOnly;
   $('fFav').checked = filters.favOnly;
   $('fUso').querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.uso === filters.uso));
@@ -537,6 +538,7 @@ function renderListItems() {
   }).join('');
 }
 function openList() {
+  closeSheet();
   listQuery = '';
   if ($('listSearch')) $('listSearch').value = '';
   renderListItems();
@@ -640,15 +642,13 @@ function initMap() {
   map.on('moveend zoomend', debounce(renderMarkers, 90));
   map.on('moveend zoomend', debounce(saveView, 400));   // recuerda dónde estabas mirando, por si la app se recarga
   map.on('moveend zoomend', updateRecenterState);
+  map.on('move', updateFarOverlay);
   map.on('rotate', onMapRotate);
   map.on('rotateend', updateModeButton);
   map.on('click', () => { closeSheet(); $('filterSheet').classList.remove('open'); closeList(); });   // tocar fuera cierra los paneles
 
-  $('recenter').addEventListener('click', () => {
-    if (!userPos) return;
-    map.setView([userPos.lat, userPos.lon], 16, { animate: true });
-    updateRecenterState();
-  });
+  $('recenter').addEventListener('click', recenterToUser);
+  $('farBackBtn').addEventListener('click', recenterToUser);
   $('mapMode').addEventListener('click', onModeButton);
   $('fitBtn').addEventListener('click', fitUserAndFountain);
 
@@ -663,7 +663,7 @@ function initMap() {
     // abierta > vista donde te quedaste > vista inicial por defecto.
     const resumed = !freshSession && (restoreSheetIfWasOpen() || restoreSavedView());
     if (!openSharedFountainIfAny() && !resumed) fitInitialView();
-    renderMarkers(); updateModeButton(); updateFitBtn(); updateRecenterState();
+    renderMarkers(); updateModeButton(); updateFitBtn(); updateRecenterState(); updateFarOverlay();
   });
 }
 
@@ -737,7 +737,7 @@ function renderMarkers() {
   }
   for (const f of inView) {
     if (!f.marker) {
-      f.marker = L.marker([f.lat, f.lon], { icon: iconFor(f) }).on('click', () => openSheet(f));
+      f.marker = L.marker([f.lat, f.lon], { icon: iconFor(f) }).on('click', () => handleMarkerClick(f));
       if (f === selected) f.marker.setZIndexOffset(700);
       fountainLayer.addLayer(f.marker); shown.add(f);
     }
@@ -848,6 +848,23 @@ function updateRecenterState() {
   const offCenter = p.x < RECENTER_EDGE_MARGIN || p.y < RECENTER_EDGE_MARGIN
                  || p.x > size.x - RECENTER_EDGE_MARGIN || p.y > size.y - RECENTER_EDGE_MARGIN;
   btn.classList.toggle('attention', offCenter);
+}
+function recenterToUser() {
+  if (!userPos || !map) return;
+  map.setView([userPos.lat, userPos.lon], 16, { animate: true });
+  updateRecenterState();
+}
+/* Oscurece la pantalla según te alejas del área con fuentes; a partir de
+   FAR_DARK_FULL_KM se queda en negro y ofrece "Volver" (= botón de centrar). */
+const FAR_DARK_START_KM = 5;
+const FAR_DARK_FULL_KM = 60;
+function updateFarOverlay() {
+  const overlay = $('farOverlay'); if (!overlay || !map || !allFountains.length) return;
+  const c = map.getCenter();
+  const km = nearestDistanceKm(c.lat, c.lng);
+  const ratio = Math.max(0, Math.min(1, (km - FAR_DARK_START_KM) / (FAR_DARK_FULL_KM - FAR_DARK_START_KM)));
+  overlay.style.opacity = ratio;
+  overlay.classList.toggle('blackout', ratio >= 1);
 }
 /* "Foco" de orientación sobre el punto azul: hacia dónde apunta el móvil,
    relativo a lo que ahora mismo es "arriba" en pantalla (que cambia si el
@@ -1010,6 +1027,12 @@ function closeSheet() {
   try { localStorage.setItem(SHEET_OPEN_KEY, '0'); } catch (_) {}
 }
 $('sheetClose').addEventListener('click', closeSheet);
+
+/* tocar la fuente ya seleccionada la deselecciona y cierra su ficha */
+function handleMarkerClick(f) {
+  if (selected === f) { closeSheet(); setTarget(null); }
+  else openSheet(f);
+}
 
 /* arrastrar la ficha hacia abajo para cerrarla (y de paso bloquea el pull-to-refresh) */
 (function enableSheetDrag() {
@@ -1303,7 +1326,7 @@ $('fUso').querySelectorAll('button').forEach(b => b.addEventListener('click', ()
 }));
 
 /* ---- Ajustes ---- */
-$('settingsBtn').addEventListener('click', () => { otherPickerOpen = false; syncSettingsUI(); $('settings').classList.add('open'); });
+$('settingsBtn').addEventListener('click', () => { closeSheet(); otherPickerOpen = false; syncSettingsUI(); $('settings').classList.add('open'); });
 $('settingsClose').addEventListener('click', () => $('settings').classList.remove('open'));
 $('setTheme').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
   settings.theme = b.dataset.theme; saveSettings(); applyTheme(); syncSettingsUI();

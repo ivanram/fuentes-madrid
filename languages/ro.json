@@ -99,6 +99,7 @@
     "ar_follow": "Urmează iconița sau săgeata",
     "ar_cam_no": "Browserul tău nu permite folosirea camerei pentru AR.",
     "ar_cam_err": "Camera nu a putut fi deschisă. Verifică permisiunile.",
-    "ar_perm": "Am nevoie de permisiunea de orientare pentru busolă."
+    "ar_perm": "Am nevoie de permisiunea de orientare pentru busolă.",
+    "far_text": "Această aplicație arată doar fântâni din Madrid", "far_back": "Înapoi"
   }
 }

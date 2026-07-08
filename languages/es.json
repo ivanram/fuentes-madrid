@@ -43,6 +43,7 @@
     "ar_almost": "¡Ya casi!", "ar_steps": "La fuente está a unos pasos de ti",
     "ar_cal": "Mueve el móvil en forma de 8 para calibrar la brújula", "ar_lift": "Levanta el móvil para ver la fuente",
     "ar_follow": "Sigue el icono o la flecha", "ar_cam_no": "Tu navegador no permite usar la cámara para AR.",
-    "ar_cam_err": "No se pudo abrir la cámara. Revisa los permisos.", "ar_perm": "Necesito permiso de orientación para la brújula."
+    "ar_cam_err": "No se pudo abrir la cámara. Revisa los permisos.", "ar_perm": "Necesito permiso de orientación para la brújula.",
+    "far_text": "Esta app solo muestra fuentes en Madrid", "far_back": "Volver"
   }
 }

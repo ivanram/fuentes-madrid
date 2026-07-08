@@ -43,6 +43,7 @@
     "ar_almost": "Fast da!", "ar_steps": "Der Brunnen ist nur ein paar Schritte entfernt",
     "ar_cal": "Bewege das Handy in einer 8, um den Kompass zu kalibrieren", "ar_lift": "Hebe das Handy, um den Brunnen zu sehen",
     "ar_follow": "Folge dem Symbol oder dem Pfeil", "ar_cam_no": "Dein Browser kann die Kamera nicht für AR verwenden.",
-    "ar_cam_err": "Kamera konnte nicht geöffnet werden. Überprüfe die Berechtigungen.", "ar_perm": "Ich benötige die Ausrichtungsberechtigung für den Kompass."
+    "ar_cam_err": "Kamera konnte nicht geöffnet werden. Überprüfe die Berechtigungen.", "ar_perm": "Ich benötige die Ausrichtungsberechtigung für den Kompass.",
+    "far_text": "Diese App zeigt nur Brunnen in Madrid", "far_back": "Zurück"
   }
 }
