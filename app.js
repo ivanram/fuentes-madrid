@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.12.19';
+const APP_VERSION = '1.12.20';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const SHEET_OPEN_KEY = 'fuentes_sheet_open_v1';
@@ -467,7 +467,14 @@ $('teleportBtn').addEventListener('click', () => {
   renderMarkers();
   fitInitialView();
 });
-$('outsideDismiss').addEventListener('click', () => { $('outsideModal').style.display = 'none'; });
+$('outsideDismiss').addEventListener('click', () => {
+  $('outsideModal').style.display = 'none';
+  // Movemos solo la VISTA a Madrid (tu ubicación real no cambia, así que
+  // rutas/distancias seguirán sin tener sentido): si no, el mapa se queda
+  // centrado en tu posición real y cae directo en el aviso de "demasiado
+  // lejos" del propio mapa, un segundo aviso redundante tras este mismo.
+  if (map) map.setView([MADRID_SOL.lat, MADRID_SOL.lon], 13, { animate: false });
+});
 
 /* ---------- Panel "Acerca de" (al tocar el título) ---------- */
 $('aboutBtn').addEventListener('click', () => { closeSheet(); $('about').classList.add('open'); checkForUpdate(); });
