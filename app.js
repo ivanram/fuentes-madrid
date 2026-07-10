@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.12.24';
+const APP_VERSION = '1.12.25';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const SHEET_OPEN_KEY = 'fuentes_sheet_open_v1';
@@ -1333,6 +1333,18 @@ async function forceUpdate(ev) {
       await Promise.all(regs.map(r => r.unregister()));
     }
     if (self.caches) { const keys = await caches.keys(); await Promise.all(keys.map(k => caches.delete(k))); }
+    // Lo anterior solo limpia la caché del service worker: la caché HTTP nativa del
+    // navegador (GitHub Pages sirve Cache-Control: max-age=600) es independiente y no se
+    // toca con eso. Si alguna vez quedó ahí una respuesta vieja para una URL versionada
+    // (p.ej. durante el propio despliegue), "recargar" seguía sirviéndola durante minutos
+    // y la app se quedaba anunciando la actualización sin instalarla nunca. Forzamos una
+    // revalidación real de red (cache:'reload') del documento y de sus scripts/estilos
+    // antes de navegar, para que esa caché quede con contenido de verdad fresco.
+    const html = await fetch(location.pathname, { cache: 'reload' }).then(r => r.text()).catch(() => null);
+    if (html) {
+      const urls = [...html.matchAll(/(?:src|href)="([^"]+\.(?:js|css)(?:\?[^"]*)?)"/g)].map(m => m[1]);
+      await Promise.all(urls.map(u => fetch(u, { cache: 'reload' }).catch(() => {})));
+    }
   } catch (_) {}
   location.replace(location.pathname + '?u=' + Date.now());
 }
@@ -1444,7 +1456,14 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catc
 // sistema de pagos: si la app se abre dentro del envoltorio Android (TWA), el
 // referrer viene como "android-app://<paquete>". Ocultamos el botón solo ahí;
 // en la web/PWA normal sigue visible.
-if (document.referrer.startsWith('android-app://') && $('donateBtn')) {
+// OJO: ese referrer especial solo llega en el lanzamiento real desde Android —
+// si la propia app se recarga a sí misma (p.ej. forceUpdate()), el referrer de
+// esa recarga es la propia página y el aviso "TWA" se perdería. Por eso lo
+// recordamos en sessionStorage la primera vez que lo vemos.
+let isTWA = document.referrer.startsWith('android-app://');
+if (isTWA) { try { sessionStorage.setItem('is_twa', '1'); } catch (_) {} }
+else { try { isTWA = sessionStorage.getItem('is_twa') === '1'; } catch (_) {} }
+if (isTWA && $('donateBtn')) {
   $('donateBtn').style.display = 'none';
 }
 
