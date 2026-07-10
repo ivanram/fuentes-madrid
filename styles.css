@@ -79,17 +79,11 @@ header.bar .count{margin-left:auto;font-size:.8rem;color:var(--muted);
 
 #map{flex:1;width:100%;background:#dfe8f1}
 
-footer.bar{
+#settings .set-footer{
   text-align:center;font-size:.78rem;color:var(--muted);
-  padding:9px;background:var(--card);border-top:1px solid var(--line);
+  margin-top:4px;padding-top:20px;border-top:1px solid var(--line);
 }
-footer.bar .heart{color:#e25563}
-footer.bar .refresh-link{
-  border:none;background:none;cursor:pointer;
-  color:var(--blue-d);font:inherit;font-size:.78rem;font-weight:600;
-  padding:0 0 0 2px;text-decoration:underline;text-underline-offset:2px;
-}
-footer.bar .refresh-link:active{opacity:.6}
+#settings .set-footer .heart{color:#e25563}
 
 /* ---------- Leaflet marker tweaks ---------- */
 .user-dot-wrap{position:relative;width:100%;height:100%}

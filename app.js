@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.12.23';
+const APP_VERSION = '1.12.24';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const SHEET_OPEN_KEY = 'fuentes_sheet_open_v1';
@@ -162,6 +162,37 @@ function applyMapTheme() {
   tileLayer.addTo(map); tileLayer.setZIndex(0);
   const el = tileLayer.getContainer && tileLayer.getContainer();
   if (el) el.style.filter = cfg.f || '';                            // filtro CSS (+ duotone SVG para cyberpunk)
+  prefetchedTiles.clear();   // nuevo estilo de mapa: las claves anteriores ya no valen (URLs distintas)
+}
+
+/* ============================================================
+   PRECACHE de teselas: cuando el mapa se queda quieto, pedimos también
+   las teselas justo fuera de la pantalla (un anillo alrededor) para que
+   ya estén en la caché del navegador si el usuario sigue moviéndose hacia
+   ahí. Solo se dispara cuando el mapa se ESTABILIZA (moveend/zoomend con
+   debounce), así que un barrido rápido no dispara descargas de más.
+   ============================================================ */
+const PREFETCH_RING = 2;          // teselas de margen a cada lado del encuadre visible
+const PREFETCH_MAX_KEYS = 800;    // evita que el Set crezca sin límite en sesiones muy largas
+const prefetchedTiles = new Set();
+function prefetchTileRing() {
+  if (!map || !tileLayer || mapMode === 'compass') return;   // en modo brújula el encuadre gira constantemente: no merece la pena
+  const z = Math.round(map.getZoom());
+  const bounds = map.getBounds();
+  const nw = map.project(bounds.getNorthWest(), z).divideBy(256).floor();
+  const se = map.project(bounds.getSouthEast(), z).divideBy(256).floor();
+  const maxTile = Math.pow(2, z);
+  if (prefetchedTiles.size > PREFETCH_MAX_KEYS) prefetchedTiles.clear();
+  for (let x = nw.x - PREFETCH_RING; x <= se.x + PREFETCH_RING; x++) {
+    if (x < 0 || x >= maxTile) continue;
+    for (let y = nw.y - PREFETCH_RING; y <= se.y + PREFETCH_RING; y++) {
+      if (y < 0 || y >= maxTile) continue;
+      const key = `${z}/${x}/${y}`;
+      if (prefetchedTiles.has(key)) continue;
+      prefetchedTiles.add(key);
+      new Image().src = tileLayer.getTileUrl({ x, y, z });
+    }
+  }
 }
 function applyAccent() {
   const a = ACCENTS[settings.accent] || ACCENTS.blue;
@@ -355,10 +386,21 @@ function makeFountain(f) { return { lat: f.lat, lon: f.lon, props: f.props, mark
 function isOperative(f) { return (f.props.ESTADO || '').toUpperCase() === 'OPERATIVO'; }
 function isDog(f) { const u = (f.props.USO || '').toUpperCase(); return u === 'MASCOTAS' || u === 'MIXTO'; }
 
+let _statusState = null;
 function setUpdated(ms, n) {
-  const d = new Date(ms);
+  _statusState = { error: false, ms, n };
+  renderStatus();
+}
+function setUpdatedError() {
+  _statusState = { error: true };
+  renderStatus();
+}
+function renderStatus() {
+  if (!_statusState || !$('updatedText')) return;
+  if (_statusState.error) { $('updatedText').textContent = t('db_error'); return; }
+  const d = new Date(_statusState.ms);
   const fmt = d.toLocaleDateString('es-ES', { day: 'numeric', month: 'numeric', year: '2-digit' });
-  if ($('updatedText')) $('updatedText').textContent = `${t('data_updated')}: ${fmt} · ${n} ${t('f_fountains')}`;
+  $('updatedText').textContent = `${t('data_updated')}: ${fmt} · ${_statusState.n} ${t('f_fountains')}`;
 }
 
 /* ============================================================
@@ -519,6 +561,7 @@ function openFilters() {
   $('filterSheet').classList.add('open');
 }
 function closeFilters() { $('filterSheet').classList.remove('open'); fitInitialView(); }
+function toggleFilters() { if ($('filterSheet').classList.contains('open')) closeFilters(); else openFilters(); }
 
 /* ============================================================
    LIST (fuentes cercanas, ordenadas por distancia)
@@ -552,7 +595,8 @@ function openList() {
   $('listSheet').classList.add('open');
 }
 function closeList() { $('listSheet').classList.remove('open'); }
-$('listBtn').addEventListener('click', openList);
+function toggleList() { if ($('listSheet').classList.contains('open')) closeList(); else openList(); }
+$('listBtn').addEventListener('click', toggleList);
 $('listClose').addEventListener('click', closeList);
 if ($('listSearch')) $('listSearch').addEventListener('input', () => { listQuery = $('listSearch').value; renderListItems(); });
 $('listItems').addEventListener('click', (e) => {
@@ -649,6 +693,7 @@ function initMap() {
   map.on('moveend zoomend', debounce(renderMarkers, 90));
   map.on('moveend zoomend', debounce(saveView, 400));   // recuerda dónde estabas mirando, por si la app se recarga
   map.on('moveend zoomend', updateRecenterState);
+  map.on('moveend zoomend', debounce(prefetchTileRing, 260));   // solo cuando el mapa se para: precarga el anillo de teselas de alrededor
   map.on('move', updateFarOverlay);
   map.on('rotate', onMapRotate);
   map.on('rotateend', updateModeButton);
@@ -829,7 +874,13 @@ function setMapModeInternal(m) {
 function setMode(m) {
   setMapModeInternal(m);
   if (m === 'north') { setBearingSafe(0); toast(t('north')); }
-  else if (m === 'compass') toast(t('compass_mode'));
+  else if (m === 'compass') {
+    // el modo brújula gira el mapa alrededor de su centro: si no estamos centrados
+    // en nuestra posición al activarlo, el giro hace que el punto azul "vuele" por
+    // la pantalla en vez de quedarse fijo.
+    if (userPos && map) map.setView([userPos.lat, userPos.lon], map.getZoom(), { animate: true });
+    toast(t('compass_mode'));
+  }
   updateModeButton();
 }
 function onModeButton() { setMode(mapMode === 'compass' ? 'north' : 'compass'); }   // alterna Norte arriba ⇄ Brújula
@@ -951,6 +1002,9 @@ function watchPosition() {
       userPos = posToObj(pos);
       if (userMarker) userMarker.setLatLng([userPos.lat, userPos.lon]);
       if (accCircle) { accCircle.setLatLng([userPos.lat, userPos.lon]); accCircle.setRadius(userPos.acc || 30); }
+      // en modo brújula seguimos centrados en todo momento: si no, cada giro deja
+      // el punto azul en un sitio distinto de la pantalla (ver setMode).
+      if (mapMode === 'compass' && map) map.setView([userPos.lat, userPos.lon], map.getZoom(), { animate: false });
       // el GPS reporta ruido de pocos metros aunque estés parado: si apenas te has
       // movido, no merece la pena recalcular y reordenar todas las distancias.
       if (!lastRecomputePos || haversine(lastRecomputePos.lat, lastRecomputePos.lon, userPos.lat, userPos.lon) >= 3) {
@@ -1322,7 +1376,7 @@ function checkForUpdate(auto) {
     .catch(() => {});
 }
 
-$('count').addEventListener('click', openFilters);
+$('count').addEventListener('click', toggleFilters);
 $('filterClose').addEventListener('click', closeFilters);
 $('filterApply').addEventListener('click', closeFilters);
 $('fOper').addEventListener('change', onFilterChange);
@@ -1351,14 +1405,14 @@ $('setLang').querySelectorAll('button').forEach(b => b.addEventListener('click',
     otherPickerOpen = true;
   } else {
     otherPickerOpen = false;
-    settings.lang = b.dataset.lang; saveSettings(); applyI18n();
+    settings.lang = b.dataset.lang; saveSettings(); applyI18n(); renderStatus();
   }
   syncSettingsUI();
 }));
 if ($('setLangOther')) $('setLangOther').addEventListener('change', () => {
   const v = $('setLangOther').value;
   if (!v) return;   // opción de marcador de posición: no hace nada
-  settings.lang = v; saveSettings(); applyI18n(); syncSettingsUI();
+  settings.lang = v; saveSettings(); applyI18n(); renderStatus(); syncSettingsUI();
 });
 $('fTrail').addEventListener('change', () => {
   settings.trailOn = $('fTrail').checked; saveSettings();
@@ -1379,6 +1433,7 @@ window.addEventListener('orientationchange', () => { if (map) setTimeout(() => m
 
 loadLanguages().then(() => {
   applyI18n(); populateOtherLanguages(); syncSettingsUI();   // re-aplica en cuanto los idiomas terminan de cargar
+  renderStatus();   // por si setUpdated()/setUpdatedError() se ejecutaron antes de que cargaran los idiomas
 });
 
 // Se registra cuanto antes, sin esperar a los datos: algunos auditores (PWABuilder,
@@ -1395,7 +1450,7 @@ if (document.referrer.startsWith('android-app://') && $('donateBtn')) {
 
 (async function boot() {
   try { await ensureData(); }
-  catch (e) { setUpdated(Date.now(), 0); if ($('updatedText')) $('updatedText').textContent = t('db_error'); }
+  catch (e) { setUpdatedError(); }
   setTimeout(() => checkForUpdate(true), 600);   // comprueba versión y se actualiza sola si toca
   autoStartIfAllowed();
 })();
