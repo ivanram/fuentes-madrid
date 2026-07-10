@@ -29,7 +29,7 @@
     "set_estela": "Estela de ubicación", "set_estela_on": "Mostrar el rastro de tu movimiento", "set_estela_len": "Longitud",
     "set_datos": "Datos · favoritas y ajustes", "btn_export": "Exportar", "btn_import": "Importar",
     "set_datos_hint": "Para llevar tu configuración a otro móvil o navegador.",
-    "footer": "Creado por Ivan con ❤️ y mucha IA",
+    "footer": "Creado por Ivan con <span id='footerHeart'>❤️</span> y mucha IA",
     "update_available": "Nueva versión disponible", "update_to": "Actualizar a",
     "north": "Norte arriba", "free": "Modo libre", "nearest": "Fuente más cercana", "exported": "Configuración exportada",
     "imported": "Configuración importada ✓", "bad_file": "Ese archivo no es válido", "updating": "Actualizando…",

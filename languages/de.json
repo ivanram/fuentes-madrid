@@ -29,7 +29,7 @@
     "set_estela": "Standortspur", "set_estela_on": "Spur deiner Bewegung anzeigen", "set_estela_len": "Länge",
     "set_datos": "Daten · Favoriten und Einstellungen", "btn_export": "Exportieren", "btn_import": "Importieren",
     "set_datos_hint": "Um deine Einstellungen auf ein anderes Gerät zu übertragen.",
-    "footer": "Erstellt von Ivan mit ❤️ und viel KI",
+    "footer": "Erstellt von Ivan mit <span id='footerHeart'>❤️</span> und viel KI",
     "update_available": "Neue Version verfügbar", "update_to": "Aktualisieren auf",
     "north": "Norden oben", "free": "Freier Modus", "nearest": "Nächster Brunnen", "exported": "Einstellungen exportiert",
     "imported": "Einstellungen importiert ✓", "bad_file": "Diese Datei ist ungültig", "updating": "Wird aktualisiert…",

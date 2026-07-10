@@ -66,7 +66,7 @@
     "btn_export": "Exportar",
     "btn_import": "Importar",
     "set_datos_hint": "Para levares a tua configuração para outro telemóvel ou navegador.",
-    "footer": "Criado por Ivan com ❤️ e muita IA",
+    "footer": "Criado por Ivan com <span id='footerHeart'>❤️</span> e muita IA",
     "update_available": "Nova versão disponível",
     "update_to": "Atualizar para",
     "north": "Norte para cima",

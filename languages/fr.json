@@ -29,7 +29,7 @@
     "set_estela": "Trace de position", "set_estela_on": "Afficher la trace de vos déplacements", "set_estela_len": "Longueur",
     "set_datos": "Données · favoris et paramètres", "btn_export": "Exporter", "btn_import": "Importer",
     "set_datos_hint": "Pour transférer votre configuration sur un autre appareil.",
-    "footer": "Créé par Ivan avec ❤️ et beaucoup d'IA",
+    "footer": "Créé par Ivan avec <span id='footerHeart'>❤️</span> et beaucoup d'IA",
     "update_available": "Nouvelle version disponible", "update_to": "Mettre à jour vers",
     "north": "Nord en haut", "free": "Mode libre", "nearest": "Fontaine la plus proche", "exported": "Configuration exportée",
     "imported": "Configuration importée ✓", "bad_file": "Ce fichier n'est pas valide", "updating": "Mise à jour…",

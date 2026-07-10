@@ -66,7 +66,7 @@
     "btn_export": "Eksportuj",
     "btn_import": "Importuj",
     "set_datos_hint": "Aby przenieść ustawienia na inny telefon lub przeglądarkę.",
-    "footer": "Stworzone przez Ivana z ❤️ i mnóstwem AI",
+    "footer": "Stworzone przez Ivana z <span id='footerHeart'>❤️</span> i mnóstwem AI",
     "update_available": "Dostępna nowa wersja",
     "update_to": "Zaktualizuj do",
     "north": "Północ u góry",

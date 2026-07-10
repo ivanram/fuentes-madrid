@@ -29,7 +29,7 @@
     "set_estela": "Location trail", "set_estela_on": "Show the trail of your movement", "set_estela_len": "Length",
     "set_datos": "Data · favourites & settings", "btn_export": "Export", "btn_import": "Import",
     "set_datos_hint": "To move your settings to another phone or browser.",
-    "footer": "Made by Ivan with ❤️ and lots of AI",
+    "footer": "Made by Ivan with <span id='footerHeart'>❤️</span> and lots of AI",
     "update_available": "New version available", "update_to": "Update to",
     "north": "North up", "free": "Free mode", "nearest": "Nearest fountain", "exported": "Settings exported",
     "imported": "Settings imported ✓", "bad_file": "That file isn't valid", "updating": "Updating…",

@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.12.25';
+const APP_VERSION = '1.12.26';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const SHEET_OPEN_KEY = 'fuentes_sheet_open_v1';
@@ -14,6 +14,8 @@ const LAST_ACTIVE_KEY = 'fuentes_last_active_v1';
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;   // más de esto sin usarla = sesión nueva: sin selección ni vista previas
 const VIEW_KEY = 'fuentes_view_v1';
 const FILTERS_KEY = 'fuentes_filters_v1';
+const DEV_UNLOCKED_KEY = 'fuentes_dev_unlocked_v1';
+const DEV_FAKELOC_KEY = 'fuentes_dev_fakeloc_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
 const MARKER_CAP = 350;          // máx. marcadores dibujados a la vez (rendimiento)
 const MIN_RADIUS = 70;           // m: evita sobre-acercar si la fuente está pegada
@@ -172,8 +174,8 @@ function applyMapTheme() {
    ahí. Solo se dispara cuando el mapa se ESTABILIZA (moveend/zoomend con
    debounce), así que un barrido rápido no dispara descargas de más.
    ============================================================ */
-const PREFETCH_RING = 2;          // teselas de margen a cada lado del encuadre visible
-const PREFETCH_MAX_KEYS = 800;    // evita que el Set crezca sin límite en sesiones muy largas
+const PREFETCH_RING = 5;          // teselas de margen a cada lado del encuadre visible
+const PREFETCH_MAX_KEYS = 2000;   // evita que el Set crezca sin límite en sesiones muy largas
 const prefetchedTiles = new Set();
 function prefetchTileRing() {
   if (!map || !tileLayer || mapMode === 'compass') return;   // en modo brújula el encuadre gira constantemente: no merece la pena
@@ -415,8 +417,18 @@ function fakeLocationFromUrl() {
   if (!isFinite(lat) || !isFinite(lon)) return null;
   return { lat, lon, acc: 20 };
 }
+/* Igual que fakeloc por URL, pero puesta desde el modo desarrollador (persiste
+   entre sesiones sin tener que tocar la URL — necesario en la app instalada). */
+function fakeLocationFromDev() {
+  try {
+    const d = JSON.parse(localStorage.getItem(DEV_FAKELOC_KEY) || 'null');
+    if (d && isFinite(d.lat) && isFinite(d.lon)) return { lat: d.lat, lon: d.lon, acc: 20 };
+  } catch (_) {}
+  return null;
+}
+function getFakeLocation() { return fakeLocationFromUrl() || fakeLocationFromDev(); }
 async function autoStartIfAllowed() {
-  const fake = fakeLocationFromUrl();
+  const fake = getFakeLocation();
   if (fake) { userPos = fake; startApp(); return; }
   let granted = false;
   try {
@@ -438,7 +450,7 @@ async function autoStartIfAllowed() {
 
 $('askLocation').addEventListener('click', requestLocation);
 function requestLocation() {
-  const fake = fakeLocationFromUrl();
+  const fake = getFakeLocation();
   if (fake) { userPos = fake; startApp(); return; }
   if (!('geolocation' in navigator)) { $('splashErr').textContent = t('no_geo'); return; }
   const btn = $('askLocation');
@@ -693,7 +705,7 @@ function initMap() {
   map.on('moveend zoomend', debounce(renderMarkers, 90));
   map.on('moveend zoomend', debounce(saveView, 400));   // recuerda dónde estabas mirando, por si la app se recarga
   map.on('moveend zoomend', updateRecenterState);
-  map.on('moveend zoomend', debounce(prefetchTileRing, 260));   // solo cuando el mapa se para: precarga el anillo de teselas de alrededor
+  map.on('moveend zoomend', debounce(prefetchTileRing, 150));   // solo cuando el mapa se para: precarga el anillo de teselas de alrededor
   map.on('move', updateFarOverlay);
   map.on('rotate', onMapRotate);
   map.on('rotateend', updateModeButton);
@@ -995,7 +1007,7 @@ function fitUserAndFountain() {
    ============================================================ */
 let lastRecomputePos = null;
 function watchPosition() {
-  if (fakeLocationFromUrl()) return;   // ubicación simulada: no la pisamos con el GPS real
+  if (getFakeLocation()) return;   // ubicación simulada: no la pisamos con el GPS real
   if (geoWatchId != null) return;
   geoWatchId = navigator.geolocation.watchPosition(
     (pos) => {
@@ -1064,7 +1076,7 @@ function renderVisitInfo(f) {
   const el = $('sVisits'); if (!el) return;
   const v = visits[favKey(f)];
   if (!v) { el.textContent = ''; el.style.display = 'none'; return; }
-  const d = new Date(v.last).toLocaleDateString('es-ES', { day: 'numeric', month: 'numeric', year: '2-digit' });
+  const d = new Date(v.last).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
   el.textContent = (v.count === 1 ? t('visit_once') : t('visit_many').replace('{n}', v.count)) + ' ' + d;
   el.style.display = 'block';
 }
@@ -1226,6 +1238,11 @@ function onOrient(e) {
       const now = Date.now();
       if (now - lastMapBearingUpdate > MAP_BEARING_THROTTLE) {
         lastMapBearingUpdate = now;
+        // Recentramos justo antes de cada giro, no solo en cada lectura de GPS: la
+        // brújula actualiza mucho más a menudo que el GPS, así que entre una lectura
+        // de posición y la siguiente el punto azul podía irse desviando del centro
+        // giro a giro hasta que llegaba la próxima corrección de posición.
+        if (userPos && map) map.setView([userPos.lat, userPos.lon], map.getZoom(), { animate: false });
         setBearingSafe(mapBearingSign * mapHeading);
       }
       // Al girar sin parar, a leaflet-rotate a veces se le quedan huecos sin
@@ -1349,6 +1366,71 @@ async function forceUpdate(ev) {
   location.replace(location.pathname + '?u=' + Date.now());
 }
 if ($('forceUpdate')) $('forceUpdate').addEventListener('click', forceUpdate);
+
+/* ============================================================
+   MODO DESARROLLADOR (oculto) — 5 toques en el ❤️ del pie de Ajustes.
+   Sirve para tomar capturas de pantalla con una ubicación simulada (sin
+   enseñar dónde vive el usuario) y para reiniciar la app sin datos.
+   ============================================================ */
+function showDevMode() {
+  if ($('devGroup')) $('devGroup').style.display = '';
+  syncDevUI();
+}
+function syncDevUI() {
+  const fl = fakeLocationFromDev();
+  if ($('devFakeLoc') && fl) $('devFakeLoc').value = `${fl.lat},${fl.lon}`;
+  if ($('devFakeLocStatus')) {
+    $('devFakeLocStatus').textContent = fl
+      ? `Simulando ubicación: ${fl.lat}, ${fl.lon}`
+      : 'Usando el GPS real.';
+  }
+}
+let devUnlocked = false;
+try { devUnlocked = localStorage.getItem(DEV_UNLOCKED_KEY) === '1'; } catch (_) {}
+if (devUnlocked) showDevMode();
+
+let heartTaps = 0, heartTapTimer = null;
+// Delegado en document (no en el propio <span>): applyI18n() reemplaza el footer entero
+// vía innerHTML al cargar/cambiar de idioma, así que un listener puesto directamente en
+// el span original se queda huérfano en cuanto eso pasa una vez.
+document.addEventListener('click', (e) => {
+  if (!e.target.closest || !e.target.closest('#footerHeart')) return;
+  heartTaps++;
+  clearTimeout(heartTapTimer);
+  heartTapTimer = setTimeout(() => { heartTaps = 0; }, 1500);
+  if (heartTaps >= 5) {
+    heartTaps = 0;
+    if (!devUnlocked) {
+      devUnlocked = true;
+      try { localStorage.setItem(DEV_UNLOCKED_KEY, '1'); } catch (_) {}
+      showDevMode();
+      toast('🛠️ Modo desarrollador activado');
+    }
+  }
+});
+if ($('devFakeLocApply')) $('devFakeLocApply').addEventListener('click', () => {
+  const v = ($('devFakeLoc').value || '').trim();
+  const m = v.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
+  if (!m) { toast('Formato: lat,lon (p.ej. 40.4169,-3.7035)'); return; }
+  try { localStorage.setItem(DEV_FAKELOC_KEY, JSON.stringify({ lat: parseFloat(m[1]), lon: parseFloat(m[2]) })); } catch (_) {}
+  toast('Ubicación simulada. Recargando…');
+  setTimeout(() => location.replace(location.pathname), 500);
+});
+if ($('devFakeLocClear')) $('devFakeLocClear').addEventListener('click', () => {
+  try { localStorage.removeItem(DEV_FAKELOC_KEY); } catch (_) {}
+  toast('Volviendo al GPS real. Recargando…');
+  setTimeout(() => location.replace(location.pathname), 500);
+});
+if ($('devWipeBtn')) $('devWipeBtn').addEventListener('click', () => {
+  if (!confirm('¿Borrar todos los datos personales (favoritas, ajustes, visitas, filtros...) y empezar de cero? Esto no se puede deshacer.')) return;
+  try {
+    [FAV_KEY, TARGET_KEY, SHEET_OPEN_KEY, VISITS_KEY, LAST_ACTIVE_KEY, VIEW_KEY, FILTERS_KEY,
+     SETTINGS_KEY, DEV_FAKELOC_KEY, DEV_UNLOCKED_KEY, 'fuentes_auto_updated_v']
+      .forEach(k => localStorage.removeItem(k));
+    sessionStorage.clear();
+  } catch (_) {}
+  location.replace(location.pathname);
+});
 
 /* ---- Comprobar si hay versión nueva publicada (vs. la cacheada) ---- */
 let updateAvailable = null;
