@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.12.28';
+const APP_VERSION = '1.12.29';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const SHEET_OPEN_KEY = 'fuentes_sheet_open_v1';
@@ -1423,14 +1423,18 @@ document.addEventListener('click', (e) => {
     }
   }
 });
+function applyDevFakeLoc(lat, lon) {
+  try { localStorage.setItem(DEV_FAKELOC_KEY, JSON.stringify({ lat, lon })); } catch (_) {}
+  toast('Ubicación simulada. Recargando…');
+  setTimeout(() => location.replace(location.pathname), 500);
+}
 if ($('devFakeLocApply')) $('devFakeLocApply').addEventListener('click', () => {
   const v = ($('devFakeLoc').value || '').trim();
   const m = v.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
   if (!m) { toast('Formato: lat,lon (p.ej. 40.4169,-3.7035)'); return; }
-  try { localStorage.setItem(DEV_FAKELOC_KEY, JSON.stringify({ lat: parseFloat(m[1]), lon: parseFloat(m[2]) })); } catch (_) {}
-  toast('Ubicación simulada. Recargando…');
-  setTimeout(() => location.replace(location.pathname), 500);
+  applyDevFakeLoc(parseFloat(m[1]), parseFloat(m[2]));
 });
+if ($('devFakeLocSol')) $('devFakeLocSol').addEventListener('click', () => applyDevFakeLoc(MADRID_SOL.lat, MADRID_SOL.lon));
 if ($('devFakeLocClear')) $('devFakeLocClear').addEventListener('click', () => {
   try { localStorage.removeItem(DEV_FAKELOC_KEY); } catch (_) {}
   toast('Volviendo al GPS real. Recargando…');

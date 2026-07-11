@@ -11,7 +11,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" referrerpolicy="no-referrer">
-  <link rel="stylesheet" href="styles.css?v=1.12.28">
+  <link rel="stylesheet" href="styles.css?v=1.12.29">
 </head>
 <body>
   <!-- Filtros "duotone": recolorean el mapa según su luminosidad (no según su
@@ -63,7 +63,7 @@
       <span data-i18n="btn_allow">Permitir ubicación</span>
     </button>
     <p class="err" id="splashErr"></p>
-    <p class="version" id="appVersion">v1.12.28</p>
+    <p class="version" id="appVersion">v1.12.29</p>
   </section>
 
   <!-- ============ APP ============ -->
@@ -188,7 +188,7 @@
     <a class="btn donate-btn" id="donateBtn" href="https://paypal.me/ivanr" target="_blank" rel="noopener">☕ <span data-i18n="donate">Invítame a un café</span></a>
     <p class="updated"><span class="dot"></span><span id="updatedText">—</span></p>
     <a class="report-link" href="https://sede.madrid.es/portal/site/tramites/menuitem.62876cb64654a55e2dbd7003a8a409a0/?vgnextoid=726a492c427c9410VgnVCM2000000c205a0aRCRD&vgnextchannel=7c6aa38813180210VgnVCM100000c90da8c0RCRD&vgnextfmt=default" target="_blank" rel="noopener" data-i18n="report_link">Reportar una fuente estropeada al Ayuntamiento</a>
-    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.12.28</span></button>
+    <button class="version-link" id="forceUpdate" title="Toca para recargar la última versión (borra la caché)"><span id="aboutVersion">v1.12.29</span></button>
   </div>
 
   <!-- ============ AJUSTES ============ -->
@@ -265,6 +265,9 @@
           <button class="btn ghost" id="devFakeLocApply">Simular ubicación</button>
           <button class="btn ghost" id="devFakeLocClear">Usar GPS real</button>
         </div>
+        <div class="set-row" style="margin-top:10px">
+          <button class="btn ghost" id="devFakeLocSol">📍 Puerta del Sol</button>
+        </div>
         <p class="set-hint" id="devFakeLocStatus"></p>
         <button class="btn danger" id="devWipeBtn" style="margin-top:16px;width:100%">Borrar todos los datos y empezar de cero</button>
       </div>
@@ -301,7 +304,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js" referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" referrerpolicy="no-referrer"></script>
-  <script src="themes.js?v=1.12.28"></script>
-  <script src="app.js?v=1.12.28"></script>
+  <script src="themes.js?v=1.12.29"></script>
+  <script src="app.js?v=1.12.29"></script>
 </body>
 </html>
