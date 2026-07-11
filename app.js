@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.12.27';
+const APP_VERSION = '1.12.28';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const SHEET_OPEN_KEY = 'fuentes_sheet_open_v1';
@@ -709,7 +709,8 @@ function initMap() {
 
   fountainLayer = L.markerClusterGroup({
     maxClusterRadius: 60, spiderfyOnMaxZoom: true, showCoverageOnHover: false,
-    zoomToBoundsOnClick: true, iconCreateFunction: clusterIcon
+    zoomToBoundsOnClick: true, iconCreateFunction: clusterIcon,
+    disableClusteringAtZoom: 16   // el zoom por defecto (vista inicial y "centrar") ya es este: mejor ver cada fuente por separado desde ahí
   }).addTo(map);
   selectedLayer = L.layerGroup().addTo(map);   // la fuente seleccionada vive aparte: nunca se agrupa en un clúster
   applyFilters();
