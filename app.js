@@ -5,7 +5,7 @@
 'use strict';
 
 /* ---------- Config ---------- */
-const APP_VERSION = '1.12.26';
+const APP_VERSION = '1.12.27';
 const FAV_KEY = 'fuentes_favs_v1';
 const TARGET_KEY = 'fuentes_target_v1';
 const SHEET_OPEN_KEY = 'fuentes_sheet_open_v1';
@@ -17,7 +17,6 @@ const FILTERS_KEY = 'fuentes_filters_v1';
 const DEV_UNLOCKED_KEY = 'fuentes_dev_unlocked_v1';
 const DEV_FAKELOC_KEY = 'fuentes_dev_fakeloc_v1';
 const INFO_URL = 'https://datos.madrid.es/dataset/300051-0-fuentes';
-const MARKER_CAP = 350;          // máx. marcadores dibujados a la vez (rendimiento)
 const MIN_RADIUS = 70;           // m: evita sobre-acercar si la fuente está pegada
 const HEADING_SMOOTH = 0.16;     // suavizado de la brújula en AR (más bajo = más lento pero ignora saltos)
 const HEADING_JUMP = 100;        // grados: cambio brusco = ruido del sensor → lo amortiguamos
@@ -28,7 +27,7 @@ const OUTSIDE_MADRID_KM = 20;     // si la fuente más cercana está más lejos 
 const MADRID_SOL = { lat: 40.4168, lon: -3.7038 };
 
 /* ---------- State ---------- */
-let map, userMarker, accCircle, fountainLayer;
+let map, userMarker, accCircle, fountainLayer, selectedLayer;
 let allFountains = [];
 let fountains = [];
 const shown = new Set();
@@ -202,7 +201,12 @@ function applyAccent() {
   const s = document.documentElement.style;
   s.setProperty('--blue', a.main); s.setProperty('--blue-d', a.d); s.setProperty('--blue-l', a.l);
   const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', a.main);
-  if (map) { for (const f of shown) if (f.marker) f.marker.setIcon(f === selected ? nearestIcon(f) : fountainIcon(f)); renderTrail(); }
+  if (map) {
+    for (const f of shown) if (f.marker) f.marker.setIcon(fountainIcon(f));
+    if (selected && selected.marker) selected.marker.setIcon(nearestIcon(selected));
+    if (fountainLayer && fountainLayer.refreshClusters) fountainLayer.refreshClusters();   // recoge el nuevo color de acento en las burbujas ya pintadas
+    renderTrail();
+  }
 }
 
 /* ---- Estela de ubicación (rastro de puntos que se difuminan) ---- */
@@ -263,7 +267,11 @@ function importData(file) {
       if (d.settings && typeof d.settings === 'object') { settings = Object.assign(settings, d.settings); saveSettings(); applyTheme(); applyMapTheme(); }
       if (d.visits && typeof d.visits === 'object') { visits = d.visits; saveVisits(); }
       if (typeof d.target === 'string') { try { localStorage.setItem(TARGET_KEY, d.target); } catch (_) {} }
-      if (map) { for (const f of shown) if (f.marker) f.marker.setIcon(f === selected ? nearestIcon(f) : fountainIcon(f)); applyFilters(); renderMarkers(); }
+      if (map) {
+        for (const f of shown) if (f.marker) f.marker.setIcon(fountainIcon(f));
+        if (selected && selected.marker) selected.marker.setIcon(nearestIcon(selected));
+        applyFilters(); renderMarkers();
+      }
       syncSettingsUI();
       toast(t('imported'));
     } catch (e) { toast(t('bad_file')); }
@@ -699,10 +707,16 @@ function initMap() {
     radius: userPos.acc || 30, color: '#1f7fe0', weight: 1, opacity: .3, fillOpacity: .08
   }).addTo(map);
 
-  fountainLayer = L.layerGroup().addTo(map);
+  fountainLayer = L.markerClusterGroup({
+    maxClusterRadius: 60, spiderfyOnMaxZoom: true, showCoverageOnHover: false,
+    zoomToBoundsOnClick: true, iconCreateFunction: clusterIcon
+  }).addTo(map);
+  selectedLayer = L.layerGroup().addTo(map);   // la fuente seleccionada vive aparte: nunca se agrupa en un clúster
   applyFilters();
 
-  map.on('moveend zoomend', debounce(renderMarkers, 90));
+  // Con clustering real ya no hace falta recalcular qué se ve en cada pan/zoom
+  // (la propia librería lo gestiona con su índice espacial) — solo cuando cambian
+  // los datos/filtro/selección, ver las llamadas a renderMarkers() más abajo.
   map.on('moveend zoomend', debounce(saveView, 400));   // recuerda dónde estabas mirando, por si la app se recarga
   map.on('moveend zoomend', updateRecenterState);
   map.on('moveend zoomend', debounce(prefetchTileRing, 150));   // solo cuando el mapa se para: precarga el anillo de teselas de alrededor
@@ -770,52 +784,52 @@ function openSharedFountainIfAny() {
   return true;
 }
 
-/* ---------- marcadores: solo lo visible, con tope ---------- */
-function iconFor(f) { return f === selected ? nearestIcon(f) : fountainIcon(f); }   // nearestIcon = gota viva + parpadeo (ahora marca la seleccionada)
-/* Tamaño de celda (px) para fusionar marcadores: si varias fuentes caen en la
-   misma celda de pantalla, solo se muestra una. Al hacer zoom las celdas se
-   separan y reaparecen todas. Transparente: sin clic para desagrupar. */
-const CLUSTER_CELL = 44;
+/* ---------- marcadores: clustering real (Leaflet.markercluster) ----------
+   Antes se fusionaban a mano las fuentes que caían en la misma celda de
+   pantalla (y las de más se descartaban sin más, sin avisar). Con clustering
+   de verdad se ven TODAS las fuentes del filtro actual, agrupadas en burbujas
+   con su número cuando están muy juntas, y además la librería solo tiene que
+   recalcular al cambiar filtro/selección — no en cada pan/zoom. */
+function clusterIcon(cluster) {
+  const n = cluster.getChildCount();
+  const size = n < 10 ? 34 : n < 50 ? 40 : 46;
+  return L.divIcon({
+    className: '', iconSize: [size, size],
+    html: `<div class="cluster-badge" style="width:${size}px;height:${size}px;background:${ACCENT}">${n}</div>`
+  });
+}
 
 function renderMarkers() {
-  if (!map || !fountainLayer) return;
-  const b = map.getBounds().pad(0.2);
-  const z = map.getZoom();
-  const seen = new Set();
-  let inView = [];
-  // `fountains` va ordenado por cercanía a ti → la representante de cada celda es la más cercana.
-  for (const f of fountains) {
-    if (!b.contains([f.lat, f.lon])) continue;
-    if (f === selected) continue; // la seleccionada se añade aparte, siempre visible
-    const p = map.project([f.lat, f.lon], z);
-    const key = ((p.x / CLUSTER_CELL) | 0) + ':' + ((p.y / CLUSTER_CELL) | 0);
-    if (seen.has(key)) continue; // celda ya ocupada → se fusiona
-    seen.add(key);
-    inView.push(f);
-  }
-  if (inView.length > MARKER_CAP) inView.length = MARKER_CAP; // tope de seguridad
-  if (selected && fountains.indexOf(selected) !== -1) inView.push(selected); // la seleccionada siempre visible
-  const need = new Set(inView);
+  if (!map || !fountainLayer || !selectedLayer) return;
+  const selectedVisible = !!(selected && fountains.includes(selected));
+  const need = new Set(fountains);
+  if (selectedVisible) need.delete(selected);   // esa va en selectedLayer, no en el grupo de clústeres
+
   for (const f of Array.from(shown)) {
     if (!need.has(f)) { if (f.marker) fountainLayer.removeLayer(f.marker); f.marker = null; shown.delete(f); }
   }
-  for (const f of inView) {
+  for (const f of need) {
     if (!f.marker) {
-      f.marker = L.marker([f.lat, f.lon], { icon: iconFor(f) }).on('click', () => handleMarkerClick(f));
-      if (f === selected) f.marker.setZIndexOffset(700);
+      f.marker = L.marker([f.lat, f.lon], { icon: fountainIcon(f) }).on('click', () => handleMarkerClick(f));
       fountainLayer.addLayer(f.marker); shown.add(f);
     }
+  }
+
+  selectedLayer.clearLayers();
+  if (selectedVisible) {
+    selected.marker = L.marker([selected.lat, selected.lon], { icon: nearestIcon(selected), zIndexOffset: 700 })
+      .on('click', () => handleMarkerClick(selected));
+    selectedLayer.addLayer(selected.marker);
+  } else if (selected) {
+    selected.marker = null;
   }
 }
 
 /* fuente seleccionada = destino resaltado y persistente entre sesiones */
 function setTarget(f) {
-  const prev = selected;
   selected = f;
   try { localStorage.setItem(TARGET_KEY, f ? favKey(f) : ''); } catch (_) {}
-  if (prev && prev !== f && prev.marker) { prev.marker.setIcon(fountainIcon(prev)); prev.marker.setZIndexOffset(0); }
-  renderMarkers();
-  if (f && f.marker) { f.marker.setIcon(nearestIcon(f)); f.marker.setZIndexOffset(700); }
+  renderMarkers();   // reconstruye ambas capas: la anterior vuelve al grupo de clústeres, la nueva pasa a selectedLayer
   updateFitBtn();
 }
 function restoreTarget() {
