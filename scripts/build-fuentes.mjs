@@ -21,7 +21,7 @@ const OUT = process.argv[3] || new URL('../fuentes.json', import.meta.url);
 
 proj4.defs('EPSG:25830', '+proj=utm +zone=30 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs');
 const toWGS = proj4('EPSG:25830', 'WGS84');
-const ELEVATION_ZOOM = 12;
+const ELEVATION_ZOOM = 14;
 
 function terrainPixel(lat, lon) {
   const scale = 2 ** ELEVATION_ZOOM;
@@ -30,8 +30,8 @@ function terrainPixel(lat, lon) {
   const y = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * scale;
   return {
     tileX: Math.floor(x), tileY: Math.floor(y),
-    pixelX: Math.min(255, Math.floor((x - Math.floor(x)) * 256)),
-    pixelY: Math.min(255, Math.floor((y - Math.floor(y)) * 256)),
+    pixelX: Math.min(255, (x - Math.floor(x)) * 256),
+    pixelY: Math.min(255, (y - Math.floor(y)) * 256),
   };
 }
 
@@ -58,10 +58,16 @@ async function addElevations(features, previousFeatures = []) {
     }
     const pixel = terrainPixel(feature.lat, feature.lon);
     const png = await loadTile(pixel.tileX, pixel.tileY);
-    const offset = (pixel.pixelY * png.width + pixel.pixelX) * 4;
-    feature.props.ELEVATION_M = Math.round(
-      png.data[offset] * 256 + png.data[offset + 1] + png.data[offset + 2] / 256 - 32768
-    );
+    const x0 = Math.floor(pixel.pixelX), y0 = Math.floor(pixel.pixelY);
+    const x1 = Math.min(x0 + 1, png.width - 1), y1 = Math.min(y0 + 1, png.height - 1);
+    const fx = pixel.pixelX - x0, fy = pixel.pixelY - y0;
+    const decode = (x, y) => {
+      const offset = (y * png.width + x) * 4;
+      return png.data[offset] * 256 + png.data[offset + 1] + png.data[offset + 2] / 256 - 32768;
+    };
+    const top = decode(x0, y0) * (1 - fx) + decode(x1, y0) * fx;
+    const bottom = decode(x0, y1) * (1 - fx) + decode(x1, y1) * fx;
+    feature.props.ELEVATION_M = Math.round(top * (1 - fy) + bottom * fy);
   }));
   console.log(`Elevación precalculada con ${tilePromises.size} teselas Terrain Tiles.`);
 }
@@ -107,18 +113,21 @@ const { feats, skipped } = parseCSV(raw);
 if (feats.length < 1500) throw new Error(`Solo ${feats.length} fuentes; abortando para no romper fuentes.json`);
 
 let previousFeatures = [];
-try { previousFeatures = JSON.parse(fs.readFileSync(OUT, 'utf8')).features || []; } catch (_) { /* primera ejecución */ }
+try {
+  const previousData = JSON.parse(fs.readFileSync(OUT, 'utf8'));
+  if (previousData.elevationZoom === ELEVATION_ZOOM) previousFeatures = previousData.features || [];
+} catch (_) { /* primera ejecución */ }
 await addElevations(feats, previousFeatures);
 
 // Si los datos no han cambiado, no reescribimos (evita commits y cambios de fecha inútiles).
 try {
   const prev = JSON.parse(fs.readFileSync(OUT, 'utf8'));
-  if (JSON.stringify(prev.features) === JSON.stringify(feats)) {
+  if (prev.elevationZoom === ELEVATION_ZOOM && JSON.stringify(prev.features) === JSON.stringify(feats)) {
     console.log(`Sin cambios (${feats.length} fuentes). No se reescribe.`);
     process.exit(0);
   }
 } catch (_) { /* no existía: lo creamos */ }
 
-const out = { updated: Date.now(), count: feats.length, source: 'Ayuntamiento de Madrid (CC BY 4.0)', features: feats };
+const out = { updated: Date.now(), count: feats.length, elevationZoom: ELEVATION_ZOOM, source: 'Ayuntamiento de Madrid (CC BY 4.0)', features: feats };
 fs.writeFileSync(OUT, JSON.stringify(out));
 console.log(`Actualizado: ${feats.length} fuentes (descartadas ${skipped}).`);
