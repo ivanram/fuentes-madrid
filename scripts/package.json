@@ -4,6 +4,7 @@
   "type": "module",
   "description": "Regenera fuentes.json desde el CSV oficial del Ayuntamiento de Madrid",
   "dependencies": {
+    "pngjs": "^7.0.0",
     "proj4": "^2.11.0"
   }
 }
