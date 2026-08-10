@@ -106,6 +106,28 @@ function parseCSV(raw) {
   return { feats, skipped };
 }
 
+function featureKey(feature) {
+  return JSON.stringify([
+    feature.lat,
+    feature.lon,
+    feature.props?.ESTADO ?? '',
+    feature.props?.USO ?? '',
+    feature.props?.DIRECCION ?? '',
+    feature.props?.DIRECCION_AUX ?? '',
+    feature.props?.BARRIO ?? '',
+    feature.props?.DISTRITO ?? '',
+    feature.props?.ELEVATION_M ?? null,
+  ]);
+}
+
+function canonicalFeatures(features) {
+  return [...features].sort((a, b) => {
+    const aKey = featureKey(a);
+    const bKey = featureKey(b);
+    return aKey < bKey ? -1 : aKey > bKey ? 1 : 0;
+  });
+}
+
 const raw = localInput
   ? fs.readFileSync(localInput, 'utf8')
   : await fetch(CSV_URL).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); });
@@ -127,12 +149,14 @@ await addElevations(feats, previousFeatures);
 // Si los datos no han cambiado, no reescribimos (evita commits y cambios de fecha inútiles).
 try {
   const prev = JSON.parse(fs.readFileSync(OUT, 'utf8'));
-  if (prev.elevationZoom === ELEVATION_ZOOM && prev.elevationSource === ELEVATION_SOURCE && JSON.stringify(prev.features) === JSON.stringify(feats)) {
+  const previousCanonical = canonicalFeatures(prev.features || []);
+  const nextCanonical = canonicalFeatures(feats);
+  if (prev.elevationZoom === ELEVATION_ZOOM && prev.elevationSource === ELEVATION_SOURCE && JSON.stringify(previousCanonical) === JSON.stringify(nextCanonical)) {
     console.log(`Sin cambios (${feats.length} fuentes). No se reescribe.`);
     process.exit(0);
   }
 } catch (_) { /* no existía: lo creamos */ }
 
-const out = { updated: Date.now(), count: feats.length, elevationZoom: ELEVATION_ZOOM, elevationSource: ELEVATION_SOURCE, source: 'Ayuntamiento de Madrid (CC BY 4.0)', features: feats };
+const out = { updated: Date.now(), count: feats.length, elevationZoom: ELEVATION_ZOOM, elevationSource: ELEVATION_SOURCE, source: 'Ayuntamiento de Madrid (CC BY 4.0)', features: canonicalFeatures(feats) };
 fs.writeFileSync(OUT, JSON.stringify(out));
 console.log(`Actualizado: ${feats.length} fuentes (descartadas ${skipped}).`);
